@@ -132,13 +132,13 @@ const MenuBackground = () => {
   useFrame((state) => {
     const t = state.clock.getElapsedTime();
     if (cameraGroup.current) {
-      // Cinematic camera movement showing the whole map
-      const radius = 60;
-      const speed = 0.04;
+      // Cinematic camera movement focused inside the map play area
+      const radius = 12;
+      const speed = 0.05;
       cameraGroup.current.position.x = Math.sin(t * speed) * radius;
       cameraGroup.current.position.z = Math.cos(t * speed) * radius;
-      cameraGroup.current.position.y = 30 + Math.sin(t * 0.1) * 5;
-      cameraGroup.current.lookAt(0, -5, 0);
+      cameraGroup.current.position.y = 2 + Math.sin(t * 0.2) * 1;
+      cameraGroup.current.lookAt(0, 1.5, 0);
     }
   });
 
