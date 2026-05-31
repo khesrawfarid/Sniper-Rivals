@@ -1,0 +1,69 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Reusable Helpers
+    function isSignedIn() { return request.auth != null; }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    function isValidId(id) { 
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); 
+    }
+
+    // Entity Validators based on firebase-blueprint.json
+    function isValidRoom(data) {
+      return data.keys().hasAll(['roomCode', 'state', 'createdAt']) &&
+        data.roomCode is string && data.roomCode.size() <= 10 &&
+        data.state is string && data.state.size() <= 10 &&
+        data.createdAt is number;
+    }
+
+    function isValidPlayer(data) {
+      return data.x is number && data.y is number && data.z is number &&
+        data.rx is number && data.ry is number &&
+        data.isMoving is bool && data.isSprinting is bool &&
+        data.isCrouching is bool && data.isJumping is bool &&
+        data.health is number && data.kills is number && data.deaths is number &&
+        data.outfitColor is string && data.outfitColor.size() <= 7 &&
+        data.eyeColor is string && data.eyeColor.size() <= 7 &&
+        data.lastUpdate is number;
+    }
+
+    function isValidEvent(data) {
+      return data.type is string && data.type.size() <= 10 &&
+        data.shooterId is string && data.shooterId.size() <= 128 &&
+        data.victimId is string && data.victimId.size() <= 128 &&
+        data.headshot is bool && data.damage is number &&
+        data.x is number && data.y is number && data.z is number &&
+        data.dx is number && data.dy is number && data.dz is number &&
+        data.createdAt is number;
+    }
+
+    match /rooms/{roomId} {
+      allow read: if isSignedIn() && isValidId(roomId);
+      allow create: if isSignedIn() && isValidId(roomId) && isValidRoom(incoming());
+      allow update: if isSignedIn() && isValidId(roomId) && isValidRoom(incoming());
+      
+      match /players/{playerId} {
+        allow read: if isSignedIn() && isValidId(roomId) && isValidId(playerId);
+        allow create: if isSignedIn() && isValidId(roomId) && isValidId(playerId) &&
+                      request.auth.uid == playerId && isValidPlayer(incoming());
+        allow update: if isSignedIn() && isValidId(roomId) && isValidId(playerId) &&
+                      request.auth.uid == playerId && isValidPlayer(incoming());
+        allow delete: if isSignedIn() && isValidId(roomId) && isValidId(playerId) &&
+                      request.auth.uid == playerId;
+      }
+      
+      match /events/{eventId} {
+        allow read: if isSignedIn() && isValidId(roomId) && isValidId(eventId);
+        allow create: if isSignedIn() && isValidId(roomId) && isValidId(eventId) &&
+                      isValidEvent(incoming()) && incoming().shooterId == request.auth.uid;
+      }
+    }
+  }
+}

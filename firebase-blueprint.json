@@ -1,0 +1,80 @@
+{
+  "entities": {
+    "Room": {
+      "title": "Room",
+      "description": "Multiplayer match rooms",
+      "type": "object",
+      "properties": {
+        "roomCode": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string",
+          "enum": ["waiting", "playing", "ended"]
+        },
+        "timeRemaining": {
+          "type": "number"
+        },
+        "createdAt": {
+          "type": "string"
+        }
+      },
+      "required": ["roomCode", "state", "createdAt"]
+    },
+    "Player": {
+      "title": "Player",
+      "description": "Information about a player in a room",
+      "type": "object",
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "z": { "type": "number" },
+        "rx": { "type": "number" },
+        "ry": { "type": "number" },
+        "isMoving": { "type": "boolean" },
+        "isSprinting": { "type": "boolean" },
+        "isCrouching": { "type": "boolean" },
+        "isJumping": { "type": "boolean" },
+        "health": { "type": "number" },
+        "kills": { "type": "number" },
+        "deaths": { "type": "number" },
+        "outfitColor": { "type": "string" },
+        "eyeColor": { "type": "string" },
+        "lastUpdate": { "type": "number" }
+      }
+    },
+    "Event": {
+      "title": "Event",
+      "description": "Transient game events like shooting or hitting",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["shoot", "hit", "death"] },
+        "shooterId": { "type": "string" },
+        "victimId": { "type": "string" },
+        "headshot": { "type": "boolean" },
+        "damage": { "type": "number" },
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "z": { "type": "number" },
+        "dx": { "type": "number" },
+        "dy": { "type": "number" },
+        "dz": { "type": "number" },
+        "createdAt": { "type": "number" }
+      }
+    }
+  },
+  "firestore": {
+    "rooms/{roomId}": {
+      "schema": { "$ref": "#/entities/Room" },
+      "description": "Active game rooms"
+    },
+    "rooms/{roomId}/players/{playerId}": {
+      "schema": { "$ref": "#/entities/Player" },
+      "description": "Players in this room"
+    },
+    "rooms/{roomId}/events/{eventId}": {
+      "schema": { "$ref": "#/entities/Event" },
+      "description": "Events happening within the room (shooting, getting hit)"
+    }
+  }
+}
