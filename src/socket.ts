@@ -73,8 +73,7 @@ class FakeSocket {
   async connect() {
     try {
       if (!auth.currentUser) {
-        const provider = new GoogleAuthProvider();
-        await signInWithPopup(auth, provider);
+        throw new Error('User must be authenticated before connecting');
       }
       this.id = auth.currentUser!.uid;
       this.connected = true;

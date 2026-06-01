@@ -5,6 +5,8 @@ import { GameScene } from './components/GameScene';
 import { MainMenu } from './components/MainMenu';
 import { playSound } from './utils/audio';
 import { LogOut } from 'lucide-react';
+import { auth } from './firebase';
+import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 
 function formatTime(secs: number) {
   const m = Math.floor(secs / 60);
@@ -372,8 +374,18 @@ const NameSetup = ({ onComplete }: { onComplete: (name: string) => void }) => {
 
     setLoading(true);
     setError('');
-    // Remove the backend check as we replaced it with Firebase.
-    onComplete(cleanName);
+    
+    try {
+      if (!auth.currentUser) {
+        const provider = new GoogleAuthProvider();
+        await signInWithPopup(auth, provider);
+      }
+      onComplete(cleanName);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || 'Failed to authenticate.');
+      setLoading(false);
+    }
   };
 
   return (
