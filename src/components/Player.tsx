@@ -209,11 +209,6 @@ export const Player = ({ position = DEFAULT_POSITION }: { position?: [number, nu
   useFrame((state, delta) => {
     if (!bodyRef.current) return;
 
-    if (matchState !== 'playing' || showSettings) {
-      bodyRef.current.setLinvel({ x: 0, y: 0, z: 0 }, true);
-      return;
-    }
-
     if (health <= 0) {
       const currentPos = bodyRef.current.translation();
       camera.position.x = currentPos.x;
@@ -250,12 +245,14 @@ export const Player = ({ position = DEFAULT_POSITION }: { position?: [number, nu
     }
     const { keybinds } = settings;
     
-    const isW = pressedKeys.has(keybinds.forward.toLowerCase());
-    const isS = pressedKeys.has(keybinds.backward.toLowerCase());
-    const isA = pressedKeys.has(keybinds.left.toLowerCase());
-    const isD = pressedKeys.has(keybinds.right.toLowerCase());
-    const isSpace = pressedKeys.has(keybinds.jump.toLowerCase());
-    const isSprintKeyDown = pressedKeys.has(keybinds.sprint.toLowerCase());
+    const canMove = matchState === 'playing' && !showSettings;
+    
+    const isW = canMove && pressedKeys.has(keybinds.forward.toLowerCase());
+    const isS = canMove && pressedKeys.has(keybinds.backward.toLowerCase());
+    const isA = canMove && pressedKeys.has(keybinds.left.toLowerCase());
+    const isD = canMove && pressedKeys.has(keybinds.right.toLowerCase());
+    const isSpace = canMove && pressedKeys.has(keybinds.jump.toLowerCase());
+    const isSprintKeyDown = canMove && pressedKeys.has(keybinds.sprint.toLowerCase());
     if (settings.sprintMode === 'hold') {
       sprintToggle.current = isSprintKeyDown;
     } else {
@@ -272,7 +269,7 @@ export const Player = ({ position = DEFAULT_POSITION }: { position?: [number, nu
 
     const isShift = sprintToggle.current;
     
-    const isCrouchKeyDown = pressedKeys.has(keybinds.crouch.toLowerCase());
+    const isCrouchKeyDown = canMove && pressedKeys.has(keybinds.crouch.toLowerCase());
     
     if (settings.crouchMode === 'hold') {
       crouchToggle.current = isCrouchKeyDown;

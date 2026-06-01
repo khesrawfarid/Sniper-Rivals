@@ -79,7 +79,7 @@ export const UploadedCharacter = ({ playerState, outfitColor = "#2b6cb0", eyeCol
     if (weaponRef.current) {
         // Apply pitch (rx from camera) to the weapon so opponents see where they are aiming
         // We invert the pitch because the weapon is rotated 180 degrees on Y
-        weaponRef.current.rotation.x = THREE.MathUtils.lerp(weaponRef.current.rotation.x, pitch, 10 * delta);
+        weaponRef.current.rotation.x = THREE.MathUtils.lerp(weaponRef.current.rotation.x, -pitch, 10 * delta);
     }
 
     let targetY = 0;

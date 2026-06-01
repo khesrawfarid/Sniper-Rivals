@@ -16,6 +16,7 @@ class FakeSocket {
   public io = { opts: { query: {} as any } };
   private listeners: Record<string, Function[]> = {};
   
+  private cleanupInterval: number | null = null;
   private currentRoom: string = '';
   private unsubPlayers: Function | null = null;
   private unsubEvents: Function | null = null;
@@ -132,9 +133,17 @@ class FakeSocket {
           const docId = change.doc.id;
           const data = change.doc.data();
           if (change.type === 'added') {
-            if (docId !== this.id) this.trigger('playerJoined', { id: docId, player: data });
+            if (data.lastUpdate && Date.now() - data.lastUpdate > 10000) {
+              if (docId !== this.id) deleteDoc(doc(db, 'rooms', roomId, 'players', docId)).catch(() => {});
+            } else {
+              if (docId !== this.id) this.trigger('playerJoined', { id: docId, player: data });
+            }
           } else if (change.type === 'modified') {
-            if (docId !== this.id) this.trigger('playerMoved', { id: docId, player: data });
+            if (data.lastUpdate && Date.now() - data.lastUpdate > 10000) {
+              if (docId !== this.id) deleteDoc(doc(db, 'rooms', roomId, 'players', docId)).catch(() => {});
+            } else {
+              if (docId !== this.id) this.trigger('playerMoved', { id: docId, player: data });
+            }
           } else if (change.type === 'removed') {
             this.trigger('playerLeft', docId);
           }
@@ -245,6 +254,20 @@ class FakeSocket {
         });
       });
       
+      if (this.cleanupInterval) clearInterval(this.cleanupInterval);
+      this.cleanupInterval = window.setInterval(() => {
+        import('./store/gameStore').then(({ useGameStore }) => {
+          const store = useGameStore.getState();
+          const now = Date.now();
+          for (const [id, player] of Object.entries(store.players)) {
+            if (id !== this.id && player.lastUpdate && now - player.lastUpdate > 10000) {
+              this.trigger('playerLeft', id);
+              deleteDoc(doc(db, 'rooms', this.currentRoom, 'players', id)).catch(() => {});
+            }
+          }
+        });
+      }, 5000);
+      
     } catch(e) {
       console.error(e);
     }
@@ -252,6 +275,7 @@ class FakeSocket {
 
   disconnect() {
     this.connected = false;
+    if (this.cleanupInterval) clearInterval(this.cleanupInterval);
     if (this.unsubPlayers) this.unsubPlayers();
     if (this.unsubEvents) this.unsubEvents();
     if (this.id && this.currentRoom) {

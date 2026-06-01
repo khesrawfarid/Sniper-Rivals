@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, Suspense } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Environment, Float, Sparkles, PerspectiveCamera, Sky, Stars, OrbitControls, useGLTF, useAnimations } from '@react-three/drei';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -9,7 +9,8 @@ import { UploadedCharacter } from './Opponent';
 import { MapErrorBoundary } from './MapErrorBoundary';
 import { createJumpPadTexture } from './Arena';
 
-// Target board replica for visual consistency in the menu
+import { db } from '../firebase';
+import { doc, getDoc } from 'firebase/firestore';
 const StaticTarget = ({ position, rotation }: { position: [number, number, number], rotation: [number, number, number] }) => {
 
   return (
@@ -256,6 +257,8 @@ export const MainMenu = ({ onPlay, playerName }: { onPlay: (options?: { name?: s
   const [customName, setCustomName] = useState('Player_' + Math.floor(Math.random() * 9000 + 1000));
   const [roomCode, setRoomCode] = useState('');
   const [popupMode, setPopupMode] = useState<'selection' | 'create' | 'join' | 'bot_difficulty'>('selection');
+  const [joinError, setJoinError] = useState('');
+  const [isCheckingRoom, setIsCheckingRoom] = useState(false);
 
   const [botCount, setBotCount] = useState(5);
 
@@ -275,7 +278,9 @@ export const MainMenu = ({ onPlay, playerName }: { onPlay: (options?: { name?: s
       {/* 3D Background */}
       <div className="absolute inset-0 z-0">
         <Canvas>
-          <MenuBackground />
+          <Suspense fallback={null}>
+            <MenuBackground />
+          </Suspense>
         </Canvas>
       </div>
 
@@ -293,16 +298,18 @@ export const MainMenu = ({ onPlay, playerName }: { onPlay: (options?: { name?: s
         </div>
         <div className="w-12 h-12 rounded-lg bg-blue-900/40 border-2 border-blue-500/30 flex items-center justify-center relative shadow-[inset_0_0_15px_rgba(59,130,246,0.2)] overflow-hidden">
           <Canvas camera={{ position: [0, 1, 2], fov: 30 }}>
-            <ambientLight intensity={1.2} />
-            <directionalLight position={[2, 2, 2]} intensity={1} />
-            <group position={[0, -0.8, 0]} rotation={[0, Math.PI, 0]}>
-              <UploadedCharacter 
-                playerState={null} 
-                position={[0, -0.6, 0]}
-                outfitColor={settings.outfitColor}
-                eyeColor={settings.eyeColor}
-              />
-            </group>
+            <Suspense fallback={null}>
+              <ambientLight intensity={1.2} />
+              <directionalLight position={[2, 2, 2]} intensity={1} />
+              <group position={[0, -0.8, 0]} rotation={[0, Math.PI, 0]}>
+                <UploadedCharacter 
+                  playerState={null} 
+                  position={[0, -0.6, 0]}
+                  outfitColor={settings.outfitColor}
+                  eyeColor={settings.eyeColor}
+                />
+              </group>
+            </Suspense>
           </Canvas>
         </div>
       </div>
@@ -331,26 +338,28 @@ export const MainMenu = ({ onPlay, playerName }: { onPlay: (options?: { name?: s
 
               <div className="flex-1 bg-black/50 rounded-xl overflow-hidden relative border border-white/5 min-h-[400px]">
                  <Canvas camera={{ position: [0, 1.5, 4], fov: 45 }}>
-                    <ambientLight intensity={0.8} />
-                    <directionalLight position={[5, 5, 5]} intensity={1.5} />
-                    <OrbitControls 
-                      ref={controlsRef}
-                      enablePan={false}
-                      enableZoom={true}
-                      minDistance={2}
-                      maxDistance={8}
-                      target={[0, 1, 0]}
-                    />
-                    <CustomizationCamera focusedPart={focusedPart} controlsRef={controlsRef} />
-                    <group rotation={[0, Math.PI, 0]}>
-                      <UploadedCharacter 
-                          playerState={null} 
-                          position={[0, -0.6, 0]}
-                          outfitColor={settings.outfitColor}
-                          eyeColor={settings.eyeColor}
+                    <Suspense fallback={null}>
+                      <ambientLight intensity={0.8} />
+                      <directionalLight position={[5, 5, 5]} intensity={1.5} />
+                      <OrbitControls 
+                        ref={controlsRef}
+                        enablePan={false}
+                        enableZoom={true}
+                        minDistance={2}
+                        maxDistance={8}
+                        target={[0, 1, 0]}
                       />
-                    </group>
-                    <Environment preset="city" />
+                      <CustomizationCamera focusedPart={focusedPart} controlsRef={controlsRef} />
+                      <group rotation={[0, Math.PI, 0]}>
+                        <UploadedCharacter 
+                            playerState={null} 
+                            position={[0, -0.6, 0]}
+                            outfitColor={settings.outfitColor}
+                            eyeColor={settings.eyeColor}
+                        />
+                      </group>
+                      <Environment preset="city" />
+                    </Suspense>
                  </Canvas>
               </div>
 
@@ -802,17 +811,35 @@ export const MainMenu = ({ onPlay, playerName }: { onPlay: (options?: { name?: s
                       <input 
                         type="text" 
                         value={roomCode}
-                        onChange={(e) => setRoomCode(e.target.value.toUpperCase().substring(0, 4))}
+                        onChange={(e) => { setRoomCode(e.target.value.toUpperCase().substring(0, 4)); setJoinError(''); }}
                         placeholder="E.G. X7F2"
                         className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-10 text-3xl text-center font-black uppercase tracking-[0.3em] font-mono text-white focus:outline-none focus:border-blue-500 transition-all"
                       />
+                      {joinError && <div className="text-red-500 text-sm font-bold mt-2 text-center">{joinError}</div>}
                     </div>
                     <button 
-                      onClick={() => roomCode.length === 4 && onPlay({ name: customName, roomCode: roomCode })}
-                      disabled={roomCode.length !== 4}
-                      className={`w-full font-black py-4 rounded-xl transition-all uppercase ${roomCode.length === 4 ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-[0_0_20px_rgba(37,99,235,0.3)] cursor-pointer' : 'bg-gray-800 text-gray-500 cursor-not-allowed'}`}
+                      onClick={async () => {
+                        if (roomCode.length !== 4 || isCheckingRoom) return;
+                        setIsCheckingRoom(true);
+                        setJoinError('');
+                        try {
+                          const roomRef = doc(db, 'rooms', roomCode);
+                          const roomSnap = await getDoc(roomRef);
+                          if (!roomSnap.exists()) {
+                            setJoinError('Lobby not found. Check code.');
+                          } else {
+                            onPlay({ name: customName, roomCode: roomCode });
+                          }
+                        } catch (err) {
+                          setJoinError('Failed to check lobby. Try again.');
+                        } finally {
+                          setIsCheckingRoom(false);
+                        }
+                      }}
+                      disabled={roomCode.length !== 4 || isCheckingRoom}
+                      className={`w-full font-black py-4 rounded-xl transition-all uppercase ${roomCode.length === 4 && !isCheckingRoom ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-[0_0_20px_rgba(37,99,235,0.3)] cursor-pointer' : 'bg-gray-800 text-gray-500 cursor-not-allowed'}`}
                     >
-                      Join Lobby
+                      {isCheckingRoom ? 'Verifying...' : 'Join Lobby'}
                     </button>
                     <div className="text-center">
                       <button onClick={() => setPopupMode('selection')} className="text-xs font-bold text-gray-500 hover:text-white uppercase tracking-widest underline underline-offset-4">Back to Menu</button>

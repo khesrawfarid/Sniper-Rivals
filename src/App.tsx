@@ -572,15 +572,24 @@ export default function App() {
     };
   }, [inMenu]);
 
-  // Update hitmarkers timeout cleanup loop
+  // Update hitmarkers and bullets timeout cleanup loop
   useEffect(() => {
     const interval = setInterval(() => {
-      const hitmarkers = useGameStore.getState().hitmarkers;
+      const state = useGameStore.getState();
       const now = Date.now();
-      if (hitmarkers.some(h => now - h.createdAt > 200)) {
-        useGameStore.getState().setLocalState({
-          hitmarkers: hitmarkers.filter(h => now - h.createdAt <= 200)
-        });
+      let updates: any = {};
+      
+      if (state.hitmarkers.some(h => now - h.createdAt > 200)) {
+        updates.hitmarkers = state.hitmarkers.filter(h => now - h.createdAt <= 200);
+      }
+      
+      const BULLET_LIFETIME = 2000;
+      if (state.bullets.some(b => now - b.createdAt > BULLET_LIFETIME)) {
+        updates.bullets = state.bullets.filter(b => now - b.createdAt <= BULLET_LIFETIME);
+      }
+      
+      if (Object.keys(updates).length > 0) {
+        state.setLocalState(updates);
       }
     }, 100);
     return () => clearInterval(interval);

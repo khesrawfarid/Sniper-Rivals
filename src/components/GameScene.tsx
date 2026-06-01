@@ -1,4 +1,4 @@
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas } from "@react-three/fiber";
 import * as THREE from 'three';
 import { Physics } from "@react-three/rapier";
 import { Sky, Stars } from "@react-three/drei";
@@ -9,21 +9,6 @@ import { Tracers } from "./Effects";
 import { useGameStore } from "../store/gameStore";
 import { MapErrorBoundary } from "./MapErrorBoundary";
 import React, { Suspense } from "react";
-
-const BULLET_LIFETIME = 2000; // ms
-
-// Helper to clean up old bullets
-const GameManager = () => {
-  useFrame(() => {
-    const state = useGameStore.getState();
-    const now = Date.now();
-    const oldBullets = state.bullets.filter(b => now - b.createdAt > BULLET_LIFETIME);
-    if (oldBullets.length > 0) {
-      oldBullets.forEach(b => state.removeBullet(b.id));
-    }
-  });
-  return null;
-};
 
 const GRAVITY: [number, number, number] = [0, -25, 0];
 
@@ -45,18 +30,21 @@ export const GameScene = () => {
       <directionalLight position={[-50, 20, -20]} intensity={0.8} color="#8a9ab0" />
       
       <Physics gravity={GRAVITY}>
-        <GameManager />
-        {myId && <Player key={`player-${myId}`} />}
+        <Suspense fallback={null}>
+          {myId && <Player key={`player-${myId}`} />}
+        </Suspense>
         <MapErrorBoundary>
           <Suspense fallback={null}>
             <Arena />
           </Suspense>
         </MapErrorBoundary>
         
-        {Object.entries(players).map(([id, player]) => {
-          if (id === myId) return null;
-          return <Opponent key={id} id={id} />;
-        })}
+        <Suspense fallback={null}>
+          {Object.entries(players).map(([id, player]) => {
+            if (id === myId) return null;
+            return <Opponent key={id} id={id} />;
+          })}
+        </Suspense>
       </Physics>
 
       <Tracers />
