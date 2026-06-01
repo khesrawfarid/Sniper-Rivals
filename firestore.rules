@@ -45,14 +45,14 @@ service cloud.firestore {
     }
 
     match /rooms/{roomId} {
-      allow read, write: if isSignedIn();
+      allow read, write: if true;
       
       match /players/{playerId} {
-        allow read, write: if isSignedIn();
+        allow read, write: if true;
       }
       
       match /events/{eventId} {
-        allow read, write: if isSignedIn();
+        allow read, write: if true;
       }
     }
   }

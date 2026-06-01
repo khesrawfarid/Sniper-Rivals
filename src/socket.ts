@@ -1,5 +1,4 @@
-import { db, auth } from './firebase';
-import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { db } from './firebase';
 import { doc, getDoc, setDoc, onSnapshot, collection, addDoc, query, where, orderBy, limit, deleteDoc, updateDoc } from 'firebase/firestore';
 
 const SAFE_SPAWNS = [
@@ -81,11 +80,9 @@ class FakeSocket {
 
   async connect() {
     try {
-      if (!auth.currentUser) {
-        const provider = new GoogleAuthProvider();
-        await signInWithPopup(auth, provider);
+      if (!this.id) {
+        this.id = crypto.randomUUID();
       }
-      this.id = auth.currentUser!.uid;
       this.connected = true;
       
       const roomId = this.io.opts.query.room || 'QUICK';
