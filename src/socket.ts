@@ -1,6 +1,15 @@
 import { db, auth } from './firebase';
-import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { signInAnonymously } from 'firebase/auth';
 import { doc, getDoc, setDoc, onSnapshot, collection, addDoc, query, where, orderBy, limit, deleteDoc, updateDoc } from 'firebase/firestore';
+
+const SAFE_SPAWNS = [
+  { x: -15, z: -15 }, { x: 15, z: 15 },
+  { x: -15, z: 15 }, { x: 15, z: -15 },
+  { x: 0, z: 20 }, { x: 0, z: -20 },
+  { x: 20, z: 0 }, { x: -20, z: 0 }
+];
+
+export const getRandomSpawn = () => SAFE_SPAWNS[Math.floor(Math.random() * SAFE_SPAWNS.length)];
 
 class FakeSocket {
   public id: string = '';
@@ -73,7 +82,7 @@ class FakeSocket {
   async connect() {
     try {
       if (!auth.currentUser) {
-        throw new Error('User must be authenticated before connecting');
+        await signInAnonymously(auth);
       }
       this.id = auth.currentUser!.uid;
       this.connected = true;
@@ -95,8 +104,9 @@ class FakeSocket {
       
       // Add self to players
       const playerRef = doc(db, 'rooms', roomId, 'players', this.id);
+      const spawn = getRandomSpawn();
       await setDoc(playerRef, {
-        x: 0, y: 10, z: 0,
+        x: spawn.x, y: 10, z: spawn.z,
         rx: 0, ry: 0,
         isMoving: false, isSprinting: false, isCrouching: false, isJumping: false,
         health: 100, kills: 0, deaths: 0,
@@ -115,7 +125,7 @@ class FakeSocket {
         timeRemaining: 300,
         players: {}
       });
-      this.trigger('matchStarted', { players: { [this.id]: { x: 0, y: 10, z: 0 } } });
+      this.trigger('matchStarted', { players: { [this.id]: { x: spawn.x, y: 10, z: spawn.z } } });
       
       // Listen to players
       const playersCol = collection(db, 'rooms', roomId, 'players');
@@ -216,8 +226,9 @@ class FakeSocket {
 
                      // Schedule respawn after 3s
                      setTimeout(() => {
-                         const safeX = (Math.random() - 0.5) * 40;
-                         const safeZ = (Math.random() - 0.5) * 40;
+                         const spawn = getRandomSpawn();
+                         const safeX = spawn.x;
+                         const safeZ = spawn.z;
                          setDoc(doc(db, 'rooms', this.currentRoom, 'players', this.id), {
                              health: 100,
                              x: safeX, y: 5, z: safeZ,
