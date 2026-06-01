@@ -6,7 +6,7 @@ import { MainMenu } from './components/MainMenu';
 import { playSound } from './utils/audio';
 import { LogOut } from 'lucide-react';
 import { auth } from './firebase';
-import { signInAnonymously } from 'firebase/auth';
+import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 
 function formatTime(secs: number) {
   const m = Math.floor(secs / 60);
@@ -377,7 +377,8 @@ const NameSetup = ({ onComplete }: { onComplete: (name: string) => void }) => {
     
     try {
       if (!auth.currentUser) {
-        await signInAnonymously(auth);
+        const provider = new GoogleAuthProvider();
+        await signInWithPopup(auth, provider);
       }
       onComplete(cleanName);
     } catch (err: any) {
