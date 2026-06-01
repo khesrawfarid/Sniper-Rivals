@@ -50,7 +50,7 @@ const StaticTarget = ({ position, rotation }: { position: [number, number, numbe
 // Visual reconstruction of the gameplay map (Arena.tsx) without physics dependencies
 const GameplayMap = () => {
   const group = useRef<THREE.Group>(null);
-  const { scene, animations } = useGLTF("/arenamap.v.2.0.glb");
+  const { scene, animations } = useGLTF(`${import.meta.env.BASE_URL}arenamap.v.2.0.glb`);
   const padTex = React.useMemo(() => createJumpPadTexture(), []);
   
   const clonedScene = React.useMemo(() => {

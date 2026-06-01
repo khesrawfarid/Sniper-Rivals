@@ -55,7 +55,7 @@ export const createJumpPadTexture = () => {
 
 export const Arena = () => {
   const group = useRef<THREE.Group>(null);
-  const { scene, animations } = useGLTF("/arenamap.v.2.0.glb");
+  const { scene, animations } = useGLTF(`${import.meta.env.BASE_URL}arenamap.v.2.0.glb`);
   const padTex = useMemo(() => createJumpPadTexture(), []);
   
   const clonedScene = useMemo(() => {

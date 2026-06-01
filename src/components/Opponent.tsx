@@ -8,7 +8,7 @@ import { useGLTF, Clone, useAnimations } from "@react-three/drei";
 import { RobotModel } from "./RobotModel";
 
 export const UploadedCharacter = ({ playerState, outfitColor = "#2b6cb0", eyeColor = "#1a202c", position = [0, -0.85, 0], scale = [0.8, 0.8, 0.8], hasWeapon = false }: { playerState?: any, outfitColor?: string, eyeColor?: string, position?: [number, number, number], scale?: [number, number, number], hasWeapon?: boolean }) => {
-  const { scene } = useGLTF("/spieler.v.02.glb");
+  const { scene } = useGLTF(`${import.meta.env.BASE_URL}spieler.v.02.glb`);
   const modelRef = useRef<THREE.Group>(null);
   
   // Compute normalized bounding box info using useMemo so it only happens once
@@ -250,5 +250,4 @@ export const Opponent = ({ id }: { id: string }) => {
   );
 };
 
-// Preload the GLTF file so it's ready instantly
-useGLTF.preload("/mmorpg_charakter.glb");
+

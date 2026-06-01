@@ -1,5 +1,5 @@
 import { db, auth } from './firebase';
-import { signInAnonymously } from 'firebase/auth';
+import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { doc, getDoc, setDoc, onSnapshot, collection, addDoc, query, where, orderBy, limit, deleteDoc, updateDoc } from 'firebase/firestore';
 
 class FakeSocket {
@@ -73,7 +73,8 @@ class FakeSocket {
   async connect() {
     try {
       if (!auth.currentUser) {
-        await signInAnonymously(auth);
+        const provider = new GoogleAuthProvider();
+        await signInWithPopup(auth, provider);
       }
       this.id = auth.currentUser!.uid;
       this.connected = true;

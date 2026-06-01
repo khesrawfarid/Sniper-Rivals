@@ -372,18 +372,8 @@ const NameSetup = ({ onComplete }: { onComplete: (name: string) => void }) => {
 
     setLoading(true);
     setError('');
-    try {
-      const res = await fetch(`/api/check-name?name=${encodeURIComponent(cleanName)}`);
-      const data = await res.json();
-      if (data.available) {
-        onComplete(cleanName);
-      } else {
-        setError(data.error || 'Name is already taken.');
-      }
-    } catch (err) {
-      setError('Failed to connect to server.');
-    }
-    setLoading(false);
+    // Remove the backend check as we replaced it with Firebase.
+    onComplete(cleanName);
   };
 
   return (
