@@ -417,7 +417,7 @@ export const MainMenu = ({ onPlay, playerName }: { onPlay: (options?: { name?: s
         <div className="w-[30%] flex flex-col justify-between">
           <div>
             <div className="flex items-center gap-4 mb-12">
-              <img src="./favicon.png" alt="Logo" className="w-16 h-16 rounded-xl border border-white/10 shadow-[0_0_20px_rgba(59,130,246,0.3)] object-cover" />
+              <img src={`${import.meta.env.BASE_URL}favicon.png`} alt="Logo" className="h-16 w-auto rounded-2xl drop-shadow-[0_0_20px_rgba(59,130,246,0.5)] object-contain overflow-hidden" />
               <div className="flex flex-col">
                 <h1 className="text-4xl font-black italic tracking-widest text-white uppercase drop-shadow-[0_0_15px_rgba(59,130,246,0.5)] leading-tight">
                   Sniper
