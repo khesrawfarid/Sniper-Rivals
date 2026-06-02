@@ -416,7 +416,17 @@ export const MainMenu = ({ onPlay, playerName }: { onPlay: (options?: { name?: s
         {/* Left Nav */}
         <div className="w-[30%] flex flex-col justify-between">
           <div>
-             {/* Title container removed */}
+            <div className="flex items-center gap-4 mb-12">
+              <img src="/favicon.png" alt="Logo" className="w-16 h-16 rounded-xl border border-white/10 shadow-[0_0_20px_rgba(59,130,246,0.3)]" />
+              <div className="flex flex-col">
+                <h1 className="text-4xl font-black italic tracking-widest text-white uppercase drop-shadow-[0_0_15px_rgba(59,130,246,0.5)] leading-tight">
+                  Sniper
+                </h1>
+                <h1 className="text-4xl font-black italic tracking-widest text-blue-500 uppercase leading-tight">
+                  Rivals
+                </h1>
+              </div>
+            </div>
 
             <nav className="flex flex-col gap-2">
               {menuItems.map((item, index) => (

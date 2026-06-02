@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
-import { RigidBody, RapierRigidBody, CapsuleCollider } from "@react-three/rapier";
+import { RigidBody, RapierRigidBody, CapsuleCollider, useRapier } from "@react-three/rapier";
 import * as THREE from "three";
 import { useGameStore } from "../store/gameStore";
 import { socket } from "../socket";
@@ -30,6 +30,7 @@ const COLLIDER_ARGS: [number, number] = [0.55, 0.3];
 const DEFAULT_POSITION: [number, number, number] = [0, 5, 0];
 
 export const Player = ({ position = DEFAULT_POSITION }: { position?: [number, number, number] }) => {
+  const { rapier, world } = useRapier();
   const { camera, scene } = useThree();
   const bodyRef = useRef<RapierRigidBody>(null);
   const raycaster = useRef(new THREE.Raycaster());
@@ -296,7 +297,16 @@ export const Player = ({ position = DEFAULT_POSITION }: { position?: [number, nu
     const isHoldingBreath = isShift && isScoped;
     
     const currentVel = bodyRef.current.linvel();
-    const isGrounded = Math.abs(currentVel.y) < 0.1;
+    const currentPos = bodyRef.current.translation();
+    
+    // Raycast down from just below the collider to check if grounded
+    const rayOrigin = { x: currentPos.x, y: currentPos.y - 0.86, z: currentPos.z };
+    const rayDir = { x: 0, y: -1, z: 0 };
+    const ray = new rapier.Ray(rayOrigin, rayDir);
+    const hit = world.castRay(ray, 0.2, true);
+    
+    // Fallback to vel y if raycast fails but we are moving flat
+    const isGrounded = hit != null || Math.abs(currentVel.y) < 0.05;
 
     // Detect slide initiation
     const SLIDE_COOLDOWN = 1000; // 1 second between slides
@@ -358,22 +368,34 @@ export const Player = ({ position = DEFAULT_POSITION }: { position?: [number, nu
 
     if (isMovingNow !== isMoving) setIsMoving(isMovingNow);
 
-    bodyRef.current.setLinvel({ x: direction.x, y: currentVel.y, z: direction.z }, true);
+    let nextVelY = currentVel.y;
+    // Counteract gravity if we are grounded to prevent sliding down slopes
+    if (isGrounded && hit && currentVel.y < 0) {
+      if (!isMovingNow) {
+        nextVelY = 0; // Stop completely if standing still
+      } else {
+        // If moving, we still want to limit downward velocity so we don't bounce off slopes
+        nextVelY = Math.max(-2, currentVel.y);
+      }
+    }
+
+    bodyRef.current.setLinvel({ x: direction.x, y: nextVelY, z: direction.z }, true);
 
     // Jump
-    if (isSpace && isGrounded && !isCrouching && !isCurrentlySliding) {
-      bodyRef.current.setLinvel({ x: currentVel.x, y: JUMP_FORCE, z: currentVel.z }, true);
+    if (isSpace && (isGrounded || Math.abs(currentVel.y) < 0.1) && !isCrouching && !isCurrentlySliding) {
+      bodyRef.current.setLinvel({ x: direction.x, y: JUMP_FORCE, z: direction.z }, true);
       pressedKeys.delete(keybinds.jump.toLowerCase()); // consume jump
     }
 
-    const currentPos = bodyRef.current.translation();
+    // Refresh translation after physics modification if necessary
+    const newPos = bodyRef.current.translation();
     
     // Strafe tilt direction
     const strafeDir = (isA ? 1 : 0) - (isD ? 1 : 0);
 
     // Update camera using our custom hook
     updateCamera(
-      new THREE.Vector3(currentPos.x, currentPos.y, currentPos.z), 
+      new THREE.Vector3(newPos.x, newPos.y, newPos.z), 
       { isMoving: isMovingNow, isSprinting, isCrouching, isGrounded, isHoldingBreath, isSliding: isCurrentlySliding }, 
       strafeDir,
       delta
@@ -394,9 +416,9 @@ export const Player = ({ position = DEFAULT_POSITION }: { position?: [number, nu
     if (now - lastEmitTime.current > 50) {
       if (myId) {
         socket.emit('move', {
-          x: currentPos.x,
-          y: currentPos.y,
-          z: currentPos.z,
+          x: newPos.x,
+          y: newPos.y,
+          z: newPos.z,
           rx: euler.x,
           ry: euler.y,
           rz: euler.z,
