@@ -13,6 +13,7 @@ export function useFPSCamera() {
   const bobFactor = useRef(0);
   const breathFactor = useRef(0);
   const tilt = useRef(0);
+  const currentCrouchOffset = useRef(0);
 
   // Smooth mouse input
   const targetEuler = useRef(new THREE.Euler(0, 0, 0, 'YXZ'));
@@ -73,13 +74,13 @@ export function useFPSCamera() {
     targetRecoil.current.yaw = THREE.MathUtils.lerp(targetRecoil.current.yaw, 0, 5 * delta);
 
     // 3. Update Camera base position
-    const crouchOffset = state.isCrouching ? -0.35 : 0;
-    const targetY = pos.y + 0.65 + crouchOffset; // Eye level
+    const targetCrouchOffset = state.isCrouching ? -0.35 : 0;
+    // Smooth crouch transition
+    currentCrouchOffset.current = THREE.MathUtils.lerp(currentCrouchOffset.current, targetCrouchOffset, 15 * delta);
     
     camera.position.x = pos.x;
     camera.position.z = pos.z;
-    // Smooth crouch transition
-    camera.position.y = THREE.MathUtils.lerp(camera.position.y, targetY, 15 * delta);
+    camera.position.y = pos.y + 0.65 + currentCrouchOffset.current; // Eye level
 
     // 4. Bobbing & Breathing effects
     if (state.isGrounded && state.isMoving) {

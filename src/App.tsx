@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { socket } from './socket';
 import { useGameStore } from './store/gameStore';
 import { GameScene } from './components/GameScene';
@@ -12,50 +12,118 @@ function formatTime(secs: number) {
   return `${m}:${s < 10 ? '0' : ''}${s}`;
 }
 
+const initializeUISounds = () => {
+  let hoverTimeout = false;
+  document.addEventListener('mouseover', (e) => {
+    if (!hoverTimeout && (e.target as HTMLElement).closest('button, .interactive')) {
+       playSound('hover');
+       hoverTimeout = true;
+       setTimeout(() => hoverTimeout = false, 50); // debounce hover
+    }
+  });
+  document.addEventListener('mousedown', (e) => {
+    if ((e.target as HTMLElement).closest('button, .interactive')) {
+       playSound('click');
+    }
+  });
+};
+initializeUISounds();
+
 const SettingsMenu = ({ onQuit }: { onQuit: () => void }) => {
   const { settings, updateSettings, toggleSettings } = useGameStore();
+  const [activeTab, setActiveTab] = React.useState('AUDIO');
   
   return (
     <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md">
-      <div className="bg-gray-900 border border-gray-700 p-8 rounded-xl w-[500px] text-white">
+      <div className="bg-gray-900 border border-gray-700 p-8 rounded-xl w-[600px] text-white">
         <h2 className="text-3xl font-black mb-6 uppercase tracking-wider text-blue-400">Settings</h2>
         
-        <div className="space-y-6">
-          <div>
-            <label className="flex justify-between text-sm font-bold text-gray-400 mb-2 uppercase">
-              <span>Sensitivity</span>
-              <span>{settings.sensitivity.toFixed(2)}</span>
-            </label>
-            <input 
-              type="range" min="0.1" max="5.0" step="0.1" 
-              value={settings.sensitivity}
-              onChange={(e) => updateSettings({ sensitivity: parseFloat(e.target.value) })}
-              className="w-full accent-blue-500"
-            />
-          </div>
+        <div className="flex gap-6 border-b border-gray-700 mb-6">
+          {['AUDIO', 'MOUSE & KEYBOARD'].map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`pb-2 text-sm font-bold tracking-widest uppercase transition-colors relative ${
+                activeTab === tab ? 'text-blue-400' : 'text-gray-500 hover:text-gray-300'
+              }`}
+            >
+              {tab}
+              {activeTab === tab && (
+                <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-400"></div>
+              )}
+            </button>
+          ))}
+        </div>
+        
+        <div className="space-y-6 overflow-y-auto max-h-[60vh] pr-4 custom-scrollbar min-h-[450px]">
+          {activeTab === 'AUDIO' && (
+            <div className="space-y-6">
+              <div>
+                <label className="flex justify-between text-sm font-bold text-gray-400 mb-2 uppercase">
+                  <span>Master Volume</span>
+                  <span>{Math.round((settings.masterVolume ?? 1.0) * 100)}%</span>
+                </label>
+                <input 
+                  type="range" min="0" max="1" step="0.05" 
+                  value={settings.masterVolume ?? 1.0}
+                  onChange={(e) => updateSettings({ masterVolume: parseFloat(e.target.value) })}
+                  className="w-full accent-blue-500"
+                />
+              </div>
+              <div>
+                <label className="flex justify-between text-sm font-bold text-gray-400 mb-2 uppercase">
+                  <span>UI Volume</span>
+                  <span>{Math.round((settings.uiVolume ?? 1.0) * 100)}%</span>
+                </label>
+                <input 
+                  type="range" min="0" max="1" step="0.05" 
+                  value={settings.uiVolume ?? 1.0}
+                  onChange={(e) => updateSettings({ uiVolume: parseFloat(e.target.value) })}
+                  className="w-full accent-blue-500"
+                />
+              </div>
+            </div>
+          )}
 
-          <div>
-            <label className="flex justify-between text-sm font-bold text-gray-400 mb-2 uppercase">
-              <span>Base FOV</span>
-              <span>{settings.fov}</span>
-            </label>
-            <input 
-              type="range" min="60" max="120" step="1" 
-              value={settings.fov}
-              onChange={(e) => updateSettings({ fov: parseInt(e.target.value) })}
-              className="w-full accent-blue-500"
-            />
-          </div>
+          {activeTab === 'MOUSE & KEYBOARD' && (
+            <div className="space-y-6">
+              <div>
+                <label className="flex justify-between text-sm font-bold text-gray-400 mb-2 uppercase">
+                  <span>Sensitivity</span>
+                  <span>{settings.sensitivity.toFixed(2)}</span>
+                </label>
+                <input 
+                  type="range" min="0.1" max="5.0" step="0.1" 
+                  value={settings.sensitivity}
+                  onChange={(e) => updateSettings({ sensitivity: parseFloat(e.target.value) })}
+                  className="w-full accent-blue-500"
+                />
+              </div>
 
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-bold text-gray-400 uppercase">Invert Y Axis</span>
-            <input 
-              type="checkbox" 
-              checked={settings.invertMouse}
-              onChange={(e) => updateSettings({ invertMouse: e.target.checked })}
-              className="w-5 h-5 accent-blue-500"
-            />
-          </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-bold text-gray-400 uppercase">Invert Y Axis</span>
+                <input 
+                  type="checkbox" 
+                  checked={settings.invertMouse}
+                  onChange={(e) => updateSettings({ invertMouse: e.target.checked })}
+                  className="w-5 h-5 accent-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="flex justify-between text-sm font-bold text-gray-400 mb-2 uppercase">
+                  <span>Base FOV</span>
+                  <span>{settings.fov}</span>
+                </label>
+                <input 
+                  type="range" min="60" max="120" step="1" 
+                  value={settings.fov}
+                  onChange={(e) => updateSettings({ fov: parseInt(e.target.value) })}
+                  className="w-full accent-blue-500"
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         <button 

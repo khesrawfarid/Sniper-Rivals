@@ -11,7 +11,7 @@ import { useFPSCamera } from "../hooks/useFPSCamera";
 
 const BASE_SPEED = 4;
 const SPRINT_SPEED = 7;
-const JUMP_FORCE = 10;
+const JUMP_FORCE = 7;
 const FIRE_RATE_MS = 1500;
 const RELOAD_MS = 2500;
 
@@ -59,6 +59,10 @@ export const Player = ({ position = DEFAULT_POSITION }: { position?: [number, nu
   const sprintToggle = useRef(false);
   const sprintKeyWasPressed = useRef(false);
 
+  const isDead = useRef(false);
+  const prevGrounded = useRef(true);
+  const lastStepTime = useRef(0);
+
   useEffect(() => {
     const onMouseMove = (e: MouseEvent) => {
       if (document.pointerLockElement === document.body) {
@@ -93,6 +97,7 @@ export const Player = ({ position = DEFAULT_POSITION }: { position?: [number, nu
 
       if (e.button === 2) {
         store.setLocalState({ isScoped: true });
+        playSound('scope');
         return;
       }
       
@@ -194,6 +199,7 @@ export const Player = ({ position = DEFAULT_POSITION }: { position?: [number, nu
     const handleMouseUp = (e: MouseEvent) => {
       if (e.button === 2) {
         useGameStore.getState().setLocalState({ isScoped: false });
+        playSound('unscope');
       }
     };
 
@@ -211,6 +217,10 @@ export const Player = ({ position = DEFAULT_POSITION }: { position?: [number, nu
     if (!bodyRef.current) return;
 
     if (health <= 0) {
+      if (!isDead.current) {
+        playSound('death');
+        isDead.current = true;
+      }
       const currentPos = bodyRef.current.translation();
       camera.position.x = currentPos.x;
       camera.position.z = currentPos.z;
@@ -234,6 +244,8 @@ export const Player = ({ position = DEFAULT_POSITION }: { position?: [number, nu
       
       bodyRef.current.setLinvel({ x: 0, y: bodyRef.current.linvel().y, z: 0 }, true);
       return; 
+    } else {
+      isDead.current = false;
     }
 
     const { isScoped, settings, teleportTo } = useGameStore.getState();
@@ -273,21 +285,21 @@ export const Player = ({ position = DEFAULT_POSITION }: { position?: [number, nu
     const isCrouchKeyDown = canMove && pressedKeys.has(keybinds.crouch.toLowerCase());
     
     if (settings.crouchMode === 'hold') {
-      crouchToggle.current = isCrouchKeyDown;
+      crouchToggle.current = isCrouchKeyDown || isSliding.current;
     } else {
       if (isCrouchKeyDown && !crouchKeyWasPressed.current) {
         crouchToggle.current = !crouchToggle.current;
-      }
-      
-      // Automatically untoggle crouch if we try to jump
-      if (isSpace && crouchToggle.current) {
-        crouchToggle.current = false;
       }
       
       // Sprinting breaks crouch, unless we are currently holding the crouch key or sliding
       if (isShift && isW && crouchToggle.current && !isCrouchKeyDown && !isSliding.current) {
         crouchToggle.current = false;
       }
+    }
+
+    // Automatically untoggle crouch if we try to jump (this also allows slide-jumping)
+    if (isSpace && crouchToggle.current) {
+      crouchToggle.current = false;
     }
     crouchKeyWasPressed.current = isCrouchKeyDown;
     
@@ -308,11 +320,27 @@ export const Player = ({ position = DEFAULT_POSITION }: { position?: [number, nu
     // Fallback to vel y if raycast fails but we are moving flat
     const isGrounded = hit != null || Math.abs(currentVel.y) < 0.05;
 
+    if (isGrounded && !prevGrounded.current && currentVel.y < -3) {
+      playSound('land');
+    }
+    prevGrounded.current = isGrounded;
+
+    const now = Date.now();
+    const isTryingToMove = isW || isA || isS || isD;
+    if (isGrounded && isTryingToMove && !isSliding.current) {
+      const stepInterval = isSprinting ? 300 : (isCrouching ? 600 : 450);
+      if (now - lastStepTime.current > stepInterval) {
+        playSound('footstep');
+        lastStepTime.current = now;
+      }
+    }
+
     // Detect slide initiation
     const SLIDE_COOLDOWN = 1000; // 1 second between slides
     if (isCrouching && !prevCrouch.current && isShift && isW && isGrounded && !isScoped) {
       if (Date.now() - lastSlideEndTime.current > SLIDE_COOLDOWN) {
         isSliding.current = true;
+        playSound('slide');
         slideStartTime.current = Date.now();
         const yawObj = new THREE.Object3D();
         yawObj.rotation.y = euler.y;
@@ -383,6 +411,7 @@ export const Player = ({ position = DEFAULT_POSITION }: { position?: [number, nu
 
     // Jump
     if (isSpace && (isGrounded || Math.abs(currentVel.y) < 0.1) && !isCrouching && !isCurrentlySliding) {
+      playSound('jump');
       bodyRef.current.setLinvel({ x: direction.x, y: JUMP_FORCE, z: direction.z }, true);
       pressedKeys.delete(keybinds.jump.toLowerCase()); // consume jump
     }
@@ -412,7 +441,6 @@ export const Player = ({ position = DEFAULT_POSITION }: { position?: [number, nu
     mouseDelta.current.y = THREE.MathUtils.lerp(mouseDelta.current.y, 0, 10 * delta);
 
     // Emit position to server
-    const now = Date.now();
     if (now - lastEmitTime.current > 50) {
       if (myId) {
         socket.emit('move', {

@@ -10,6 +10,8 @@ interface GameSettings {
   smoothing: number;
   crouchMode: 'toggle' | 'hold';
   sprintMode: 'toggle' | 'hold';
+  masterVolume: number;
+  uiVolume: number;
   keybinds: {
     forward: string;
     backward: string;
@@ -65,8 +67,10 @@ const defaultSettings: GameSettings = {
   invertMouse: false,
   motionBlur: false,
   smoothing: 0.5,
-  crouchMode: 'toggle',
-  sprintMode: 'toggle',
+  masterVolume: 1.0,
+  uiVolume: 1.0,
+  crouchMode: 'hold',
+  sprintMode: 'hold',
   keybinds: {
     forward: 'w',
     backward: 's',

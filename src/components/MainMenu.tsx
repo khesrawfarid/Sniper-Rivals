@@ -187,7 +187,7 @@ const MenuBackground = () => {
 const menuItems = [
   { id: 'play', label: 'PLAY', icon: Play, subMenus: ['Quick Match', 'Ranked', 'Custom Match', 'Bots'] },
   { id: 'training', label: 'TRAINING', icon: CircleDot, subMenus: ['Training Ground'] },
-  { id: 'settings', label: 'SETTINGS', icon: Settings, subMenus: ['Graphics', 'Sensitivity', 'Audio', 'Keybinds'] },
+  { id: 'settings', label: 'SETTINGS', icon: Settings, subMenus: ['Audio', 'Mouse & Keyboard'] },
 ];
 
 function CustomizationCamera({ focusedPart, controlsRef }: { focusedPart: 'skin' | 'outfit' | 'hat' | null, controlsRef: any }) {
@@ -247,6 +247,7 @@ function CustomizationCamera({ focusedPart, controlsRef }: { focusedPart: 'skin'
 export const MainMenu = ({ onPlay, playerName }: { onPlay: (options?: { name?: string; roomCode?: string }) => void, playerName?: string | null }) => {
   const [activeMenu, setActiveMenu] = useState('play');
   const [hoveredMenu, setHoveredMenu] = useState<string | null>(null);
+  const [activeSettingsTab, setActiveSettingsTab] = useState('AUDIO');
   
   const [focusedPart, setFocusedPart] = useState<'skin' | 'outfit' | 'hat' | null>(null);
   const controlsRef = useRef<any>(null);
@@ -593,107 +594,150 @@ export const MainMenu = ({ onPlay, playerName }: { onPlay: (options?: { name?: s
                      <h2 className="text-2xl font-black tracking-wider uppercase">Game Settings</h2>
                    </div>
 
-                   {/* Sensitivity */}
-                   <div className="space-y-4">
-                     <div className="flex justify-between items-center">
-                       <label className="text-sm font-bold text-gray-300 uppercase tracking-widest">Sensitivity</label>
-                       <span className="text-blue-400 font-mono font-bold bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">{settings.sensitivity.toFixed(2)}</span>
-                     </div>
-                     <input 
-                       type="range" min="0.1" max="10" step="0.01" 
-                       value={settings.sensitivity} 
-                       onChange={(e) => updateSettings({ sensitivity: parseFloat(e.target.value) })}
-                       className="w-full h-1.5 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                     />
+                   <div className="flex gap-6 border-b border-white/10 mb-6">
+                     {['AUDIO', 'MOUSE & KEYBOARD'].map((tab) => (
+                       <button
+                         key={tab}
+                         onClick={() => setActiveSettingsTab(tab)}
+                         className={`pb-2 text-sm font-bold tracking-widest uppercase transition-colors relative ${
+                           activeSettingsTab === tab ? 'text-blue-400' : 'text-gray-500 hover:text-gray-300'
+                         }`}
+                       >
+                         {tab}
+                         {activeSettingsTab === tab && (
+                           <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-400"></div>
+                         )}
+                       </button>
+                     ))}
                    </div>
-
-                   {/* FOV */}
-                   <div className="space-y-4 pt-4 border-t border-white/5">
-                     <div className="flex justify-between items-center">
-                       <label className="text-sm font-bold text-gray-300 uppercase tracking-widest">Field of View (FOV)</label>
-                       <span className="text-blue-400 font-mono font-bold bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">{settings.fov}</span>
-                     </div>
-                     <input 
-                       type="range" min="60" max="120" step="1" 
-                       value={settings.fov} 
-                       onChange={(e) => updateSettings({ fov: parseInt(e.target.value) })}
-                       className="w-full h-1.5 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                     />
-                   </div>
-
-                   {/* Invert Y Axis */}
-                   <div className="space-y-4 pt-4 border-t border-white/5">
-                     <div className="flex items-center justify-between">
-                       <span className="text-sm font-bold text-gray-300 uppercase tracking-widest">Invert Y Axis</span>
-                       <input 
-                         type="checkbox" 
-                         checked={settings.invertMouse}
-                         onChange={(e) => updateSettings({ invertMouse: e.target.checked })}
-                         className="w-5 h-5 accent-blue-500"
-                       />
-                     </div>
-                   </div>
-
-                   {/* Keybinds */}
-                   <div className="space-y-4 pt-6 border-t border-white/5 pb-4">
-                     <label className="text-sm font-bold text-gray-300 uppercase tracking-widest block mb-4">Key Bindings</label>
-                     <div className="space-y-2">
-                       {Object.entries(settings.keybinds).map(([action, key]) => (
-                         <div key={action} className="flex flex-col rounded-lg bg-white/5 border border-white/5 hover:border-white/20 transition-all overflow-hidden group">
-                           <div className="flex justify-between items-center p-3">
-                             <span className="text-sm font-medium text-gray-300 uppercase">{action}</span>
-                             <input 
-                               readOnly
-                               value={key === ' ' ? 'SPACE' : key.toUpperCase()}
-                               onKeyDown={(e) => {
-                                 e.preventDefault();
-                                 e.stopPropagation();
-                                 if (e.key === 'Escape') return; // let parent handle it if needed
-                                 const val = e.code === 'Space' ? ' ' : e.key.toLowerCase();
-                                 updateSettings({ keybinds: { ...settings.keybinds, [action]: val }});
-                                 e.currentTarget.blur();
-                               }}
-                               className="px-4 py-1.5 min-w-[80px] text-center rounded-md bg-black/60 border border-blue-500/30 text-blue-400 font-bold font-mono group-hover:border-blue-500 transition-colors focus:outline-none focus:border-blue-400 focus:bg-blue-900/30 cursor-pointer"
-                             />
+                   
+                   <div className="min-h-[450px]">
+                     {activeSettingsTab === 'AUDIO' && (
+                       <div className="space-y-6">
+                         <div className="space-y-4">
+                           <div className="flex justify-between items-center">
+                             <label className="text-sm font-bold text-gray-300 uppercase tracking-widest">Master Volume</label>
+                             <span className="text-blue-400 font-mono font-bold bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">{Math.round((settings.masterVolume ?? 1.0) * 100)}%</span>
                            </div>
-                           {action === 'crouch' && (
-                             <div className="flex justify-end items-center gap-2 px-3 pb-3">
-                               <button 
-                                 onClick={() => updateSettings({ crouchMode: 'hold' })}
-                                 className={`px-3 py-1 rounded text-xs font-bold uppercase tracking-widest transition-colors ${settings.crouchMode === 'hold' ? 'bg-blue-600 text-white shadow-[0_0_10px_rgba(37,99,235,0.4)]' : 'bg-black/40 text-gray-500 hover:text-gray-300'}`}
-                               >
-                                 Hold
-                               </button>
-                               <button 
-                                 onClick={() => updateSettings({ crouchMode: 'toggle' })}
-                                 className={`px-3 py-1 rounded text-xs font-bold uppercase tracking-widest transition-colors ${settings.crouchMode === 'toggle' ? 'bg-blue-600 text-white shadow-[0_0_10px_rgba(37,99,235,0.4)]' : 'bg-black/40 text-gray-500 hover:text-gray-300'}`}
-                               >
-                                 Toggle
-                               </button>
-                             </div>
-                           )}
-                           {action === 'sprint' && (
-                             <div className="flex justify-end items-center gap-2 px-3 pb-3">
-                               <button 
-                                 onClick={() => updateSettings({ sprintMode: 'hold' })}
-                                 className={`px-3 py-1 rounded text-xs font-bold uppercase tracking-widest transition-colors ${settings.sprintMode === 'hold' ? 'bg-blue-600 text-white shadow-[0_0_10px_rgba(37,99,235,0.4)]' : 'bg-black/40 text-gray-500 hover:text-gray-300'}`}
-                               >
-                                 Hold
-                               </button>
-                               <button 
-                                 onClick={() => updateSettings({ sprintMode: 'toggle' })}
-                                 className={`px-3 py-1 rounded text-xs font-bold uppercase tracking-widest transition-colors ${settings.sprintMode === 'toggle' ? 'bg-blue-600 text-white shadow-[0_0_10px_rgba(37,99,235,0.4)]' : 'bg-black/40 text-gray-500 hover:text-gray-300'}`}
-                               >
-                                 Toggle
-                               </button>
-                             </div>
-                           )}
+                           <input 
+                             type="range" min="0" max="1" step="0.05" 
+                             value={settings.masterVolume ?? 1.0} 
+                             onChange={(e) => updateSettings({ masterVolume: parseFloat(e.target.value) })}
+                             className="w-full h-1.5 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-blue-500 block"
+                           />
                          </div>
-                       ))}
+                         <div className="space-y-4">
+                           <div className="flex justify-between items-center">
+                             <label className="text-sm font-bold text-gray-300 uppercase tracking-widest">UI Volume</label>
+                             <span className="text-blue-400 font-mono font-bold bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">{Math.round((settings.uiVolume ?? 1.0) * 100)}%</span>
+                           </div>
+                           <input 
+                             type="range" min="0" max="1" step="0.05" 
+                             value={settings.uiVolume ?? 1.0} 
+                             onChange={(e) => updateSettings({ uiVolume: parseFloat(e.target.value) })}
+                             className="w-full h-1.5 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-blue-500 block"
+                           />
+                         </div>
+
+                       </div>
+                   )}
+
+                   {activeSettingsTab === 'MOUSE & KEYBOARD' && (
+                     <div className="space-y-6">
+                       <div className="space-y-4">
+                         <div className="flex justify-between items-center">
+                           <label className="text-sm font-bold text-gray-300 uppercase tracking-widest">Sensitivity</label>
+                           <span className="text-blue-400 font-mono font-bold bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">{settings.sensitivity.toFixed(2)}</span>
+                         </div>
+                         <input 
+                           type="range" min="0.1" max="10" step="0.01" 
+                           value={settings.sensitivity} 
+                           onChange={(e) => updateSettings({ sensitivity: parseFloat(e.target.value) })}
+                           className="w-full h-1.5 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-blue-500 mb-4 block"
+                         />
+
+                         <div className="flex items-center justify-between border-t border-white/5 pt-4">
+                           <span className="text-sm font-bold text-gray-300 uppercase tracking-widest">Invert Y Axis</span>
+                           <input 
+                             type="checkbox" 
+                             checked={settings.invertMouse}
+                             onChange={(e) => updateSettings({ invertMouse: e.target.checked })}
+                             className="w-5 h-5 accent-blue-500"
+                           />
+                         </div>
+
+                         <div className="flex justify-between items-center border-t border-white/5 pt-4">
+                           <label className="text-sm font-bold text-gray-300 uppercase tracking-widest">Field of View (FOV)</label>
+                           <span className="text-blue-400 font-mono font-bold bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">{settings.fov}</span>
+                         </div>
+                         <input 
+                           type="range" min="60" max="120" step="1" 
+                           value={settings.fov} 
+                           onChange={(e) => updateSettings({ fov: parseInt(e.target.value) })}
+                           className="w-full h-1.5 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-blue-500 block"
+                         />
+                       </div>
+
+                       <div className="space-y-2 border-t border-white/10 pt-4">
+                         <h4 className="text-sm font-bold text-gray-500 mb-4 tracking-widest uppercase">Keybinds</h4>
+                         {Object.entries(settings.keybinds).map(([action, key]) => (
+                           <div key={action} className="flex flex-col rounded-lg bg-white/5 border border-white/5 hover:border-white/20 transition-all overflow-hidden group">
+                             <div className="flex justify-between items-center p-3">
+                               <span className="text-sm font-medium text-gray-300 uppercase">{action}</span>
+                               <input 
+                                 readOnly
+                                 value={key === ' ' ? 'SPACE' : key.toUpperCase()}
+                                 onKeyDown={(e) => {
+                                   e.preventDefault();
+                                   e.stopPropagation();
+                                   if (e.key === 'Escape') return; // let parent handle it if needed
+                                   const val = e.code === 'Space' ? ' ' : e.key.toLowerCase();
+                                   updateSettings({ keybinds: { ...settings.keybinds, [action]: val }});
+                                   e.currentTarget.blur();
+                                 }}
+                                 className="px-4 py-1.5 min-w-[80px] text-center rounded-md bg-black/60 border border-blue-500/30 text-blue-400 font-bold font-mono group-hover:border-blue-500 transition-colors focus:outline-none focus:border-blue-400 focus:bg-blue-900/30 cursor-pointer"
+                               />
+                             </div>
+                             {action === 'crouch' && (
+                               <div className="flex justify-end items-center gap-2 px-3 pb-3">
+                                 <button 
+                                   onClick={() => updateSettings({ crouchMode: 'hold' })}
+                                   className={`px-3 py-1 rounded text-xs font-bold uppercase tracking-widest transition-colors ${settings.crouchMode === 'hold' ? 'bg-blue-600 text-white shadow-[0_0_10px_rgba(37,99,235,0.4)]' : 'bg-black/40 text-gray-500 hover:text-gray-300'}`}
+                                 >
+                                   Hold
+                                 </button>
+                                 <button 
+                                   onClick={() => updateSettings({ crouchMode: 'toggle' })}
+                                   className={`px-3 py-1 rounded text-xs font-bold uppercase tracking-widest transition-colors ${settings.crouchMode === 'toggle' ? 'bg-blue-600 text-white shadow-[0_0_10px_rgba(37,99,235,0.4)]' : 'bg-black/40 text-gray-500 hover:text-gray-300'}`}
+                                 >
+                                   Toggle
+                                 </button>
+                               </div>
+                             )}
+                             {action === 'sprint' && (
+                               <div className="flex justify-end items-center gap-2 px-3 pb-3">
+                                 <button 
+                                   onClick={() => updateSettings({ sprintMode: 'hold' })}
+                                   className={`px-3 py-1 rounded text-xs font-bold uppercase tracking-widest transition-colors ${settings.sprintMode === 'hold' ? 'bg-blue-600 text-white shadow-[0_0_10px_rgba(37,99,235,0.4)]' : 'bg-black/40 text-gray-500 hover:text-gray-300'}`}
+                                 >
+                                   Hold
+                                 </button>
+                                 <button 
+                                   onClick={() => updateSettings({ sprintMode: 'toggle' })}
+                                   className={`px-3 py-1 rounded text-xs font-bold uppercase tracking-widest transition-colors ${settings.sprintMode === 'toggle' ? 'bg-blue-600 text-white shadow-[0_0_10px_rgba(37,99,235,0.4)]' : 'bg-black/40 text-gray-500 hover:text-gray-300'}`}
+                                 >
+                                   Toggle
+                                 </button>
+                               </div>
+                             )}
+                           </div>
+                         ))}
+                       </div>
                      </div>
-                   </div>
-                </div>
-              )}
+                   )}
+                 </div>
+                 </div>
+               )}
 
               {/* Generic State for other menus */}
               {activeMenu !== 'play' && activeMenu !== 'profile' && activeMenu !== 'settings' && (
