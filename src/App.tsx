@@ -1,29 +1,40 @@
-import React, { useEffect, useState } from 'react';
-import { socket } from './socket';
-import { useGameStore } from './store/gameStore';
-import { GameScene } from './components/GameScene';
-import { MainMenu } from './components/MainMenu';
-import { playSound } from './utils/audio';
-import { LogOut } from 'lucide-react';
+import React, { useEffect, useState } from "react";
+import { socket } from "./socket";
+import { getRandomSpawn } from "./socket";
+import { useGameStore } from "./store/gameStore";
+import { GameScene } from "./components/GameScene";
+import { MainMenu } from "./components/MainMenu";
+import { playSound } from "./utils/audio";
+import { LogOut } from "lucide-react";
 
 function formatTime(secs: number) {
   const m = Math.floor(secs / 60);
   const s = secs % 60;
-  return `${m}:${s < 10 ? '0' : ''}${s}`;
+  return `${m}:${s < 10 ? "0" : ""}${s}`;
 }
+
+export const getSafeSpawnPosition = (yPos: number) => {
+  const base = getRandomSpawn();
+  const jitterX = (Math.random() - 0.5) * 5;
+  const jitterZ = (Math.random() - 0.5) * 5;
+  return { x: base.x + jitterX, y: yPos, z: base.z + jitterZ };
+};
 
 const initializeUISounds = () => {
   let hoverTimeout = false;
-  document.addEventListener('mouseover', (e) => {
-    if (!hoverTimeout && (e.target as HTMLElement).closest('button, .interactive')) {
-       playSound('hover');
-       hoverTimeout = true;
-       setTimeout(() => hoverTimeout = false, 50); // debounce hover
+  document.addEventListener("mouseover", (e) => {
+    if (
+      !hoverTimeout &&
+      (e.target as HTMLElement).closest("button, .interactive")
+    ) {
+      playSound("hover");
+      hoverTimeout = true;
+      setTimeout(() => (hoverTimeout = false), 50); // debounce hover
     }
   });
-  document.addEventListener('mousedown', (e) => {
-    if ((e.target as HTMLElement).closest('button, .interactive')) {
-       playSound('click');
+  document.addEventListener("mousedown", (e) => {
+    if ((e.target as HTMLElement).closest("button, .interactive")) {
+      playSound("click");
     }
   });
 };
@@ -31,20 +42,24 @@ initializeUISounds();
 
 const SettingsMenu = ({ onQuit }: { onQuit: () => void }) => {
   const { settings, updateSettings, toggleSettings } = useGameStore();
-  const [activeTab, setActiveTab] = React.useState('AUDIO');
-  
+  const [activeTab, setActiveTab] = React.useState("AUDIO");
+
   return (
     <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md">
       <div className="bg-gray-900 border border-gray-700 p-8 rounded-xl w-[600px] text-white">
-        <h2 className="text-3xl font-black mb-6 uppercase tracking-wider text-blue-400">Settings</h2>
-        
+        <h2 className="text-3xl font-black mb-6 uppercase tracking-wider text-blue-400">
+          Settings
+        </h2>
+
         <div className="flex gap-6 border-b border-gray-700 mb-6">
-          {['AUDIO', 'MOUSE & KEYBOARD'].map((tab) => (
+          {["AUDIO", "MOUSE & KEYBOARD"].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={`pb-2 text-sm font-bold tracking-widest uppercase transition-colors relative ${
-                activeTab === tab ? 'text-blue-400' : 'text-gray-500 hover:text-gray-300'
+                activeTab === tab
+                  ? "text-blue-400"
+                  : "text-gray-500 hover:text-gray-300"
               }`}
             >
               {tab}
@@ -54,19 +69,26 @@ const SettingsMenu = ({ onQuit }: { onQuit: () => void }) => {
             </button>
           ))}
         </div>
-        
+
         <div className="space-y-6 overflow-y-auto max-h-[60vh] pr-4 custom-scrollbar min-h-[450px]">
-          {activeTab === 'AUDIO' && (
+          {activeTab === "AUDIO" && (
             <div className="space-y-6">
               <div>
                 <label className="flex justify-between text-sm font-bold text-gray-400 mb-2 uppercase">
                   <span>Master Volume</span>
-                  <span>{Math.round((settings.masterVolume ?? 1.0) * 100)}%</span>
+                  <span>
+                    {Math.round((settings.masterVolume ?? 1.0) * 100)}%
+                  </span>
                 </label>
-                <input 
-                  type="range" min="0" max="1" step="0.05" 
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
                   value={settings.masterVolume ?? 1.0}
-                  onChange={(e) => updateSettings({ masterVolume: parseFloat(e.target.value) })}
+                  onChange={(e) =>
+                    updateSettings({ masterVolume: parseFloat(e.target.value) })
+                  }
                   className="w-full accent-blue-500"
                 />
               </div>
@@ -75,37 +97,51 @@ const SettingsMenu = ({ onQuit }: { onQuit: () => void }) => {
                   <span>UI Volume</span>
                   <span>{Math.round((settings.uiVolume ?? 1.0) * 100)}%</span>
                 </label>
-                <input 
-                  type="range" min="0" max="1" step="0.05" 
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
                   value={settings.uiVolume ?? 1.0}
-                  onChange={(e) => updateSettings({ uiVolume: parseFloat(e.target.value) })}
+                  onChange={(e) =>
+                    updateSettings({ uiVolume: parseFloat(e.target.value) })
+                  }
                   className="w-full accent-blue-500"
                 />
               </div>
             </div>
           )}
 
-          {activeTab === 'MOUSE & KEYBOARD' && (
+          {activeTab === "MOUSE & KEYBOARD" && (
             <div className="space-y-6">
               <div>
                 <label className="flex justify-between text-sm font-bold text-gray-400 mb-2 uppercase">
                   <span>Sensitivity</span>
                   <span>{settings.sensitivity.toFixed(2)}</span>
                 </label>
-                <input 
-                  type="range" min="0.1" max="5.0" step="0.1" 
+                <input
+                  type="range"
+                  min="0.1"
+                  max="5.0"
+                  step="0.1"
                   value={settings.sensitivity}
-                  onChange={(e) => updateSettings({ sensitivity: parseFloat(e.target.value) })}
+                  onChange={(e) =>
+                    updateSettings({ sensitivity: parseFloat(e.target.value) })
+                  }
                   className="w-full accent-blue-500"
                 />
               </div>
 
               <div className="flex items-center justify-between">
-                <span className="text-sm font-bold text-gray-400 uppercase">Invert Y Axis</span>
-                <input 
-                  type="checkbox" 
+                <span className="text-sm font-bold text-gray-400 uppercase">
+                  Invert Y Axis
+                </span>
+                <input
+                  type="checkbox"
                   checked={settings.invertMouse}
-                  onChange={(e) => updateSettings({ invertMouse: e.target.checked })}
+                  onChange={(e) =>
+                    updateSettings({ invertMouse: e.target.checked })
+                  }
                   className="w-5 h-5 accent-blue-500"
                 />
               </div>
@@ -115,10 +151,15 @@ const SettingsMenu = ({ onQuit }: { onQuit: () => void }) => {
                   <span>Base FOV</span>
                   <span>{settings.fov}</span>
                 </label>
-                <input 
-                  type="range" min="60" max="120" step="1" 
+                <input
+                  type="range"
+                  min="60"
+                  max="120"
+                  step="1"
                   value={settings.fov}
-                  onChange={(e) => updateSettings({ fov: parseInt(e.target.value) })}
+                  onChange={(e) =>
+                    updateSettings({ fov: parseInt(e.target.value) })
+                  }
                   className="w-full accent-blue-500"
                 />
               </div>
@@ -126,13 +167,15 @@ const SettingsMenu = ({ onQuit }: { onQuit: () => void }) => {
           )}
         </div>
 
-        <button 
+        <button
           onClick={() => {
             toggleSettings();
             try {
               const promise = document.body.requestPointerLock();
               if (promise) {
-                promise.catch((e: any) => console.warn("Pointer lock error:", e));
+                promise.catch((e: any) =>
+                  console.warn("Pointer lock error:", e),
+                );
               }
             } catch (e) {
               console.warn("Pointer lock error:", e);
@@ -143,7 +186,7 @@ const SettingsMenu = ({ onQuit }: { onQuit: () => void }) => {
           Resume Game
         </button>
 
-        <button 
+        <button
           onClick={() => {
             onQuit();
           }}
@@ -157,26 +200,46 @@ const SettingsMenu = ({ onQuit }: { onQuit: () => void }) => {
 };
 
 const UIOverlay = ({ onQuit }: { onQuit: () => void }) => {
-  const { matchState, timeRemaining, winner, myId, players, ammo, isReloading, isScoped, health, hitmarkers, killFeed, showSettings, toggleSettings } = useGameStore();
+  const {
+    matchState,
+    timeRemaining,
+    winner,
+    myId,
+    players,
+    ammo,
+    isReloading,
+    isScoped,
+    health,
+    hitmarkers,
+    killFeed,
+    showSettings,
+    toggleSettings,
+  } = useGameStore();
 
   const myPlayerState = myId ? players[myId] : null;
-  const opponentId = Object.keys(players).find(id => id !== myId && !id.startsWith('target_'));
+  const opponentId = Object.keys(players).find(
+    (id) => id !== myId && !id.startsWith("target_"),
+  );
   const opponentState = opponentId ? players[opponentId] : null;
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (matchState === 'playing') {
+      if (e.key === "Escape") {
+        if (matchState === "playing") {
           // Let pointer lock handle escape, we just sync state via pointerlockchange
         }
       }
     };
-    
+
     const onPointerLockChange = () => {
       const isLocked = document.pointerLockElement === document.body;
       const storeState = useGameStore.getState();
-      
-      if (!isLocked && storeState.matchState === 'playing' && !storeState.showSettings) {
+
+      if (
+        !isLocked &&
+        storeState.matchState === "playing" &&
+        !storeState.showSettings
+      ) {
         useGameStore.getState().updateSettings({}); // touch
         useGameStore.getState().toggleSettings(); // open settings
       } else if (isLocked && storeState.showSettings) {
@@ -184,30 +247,43 @@ const UIOverlay = ({ onQuit }: { onQuit: () => void }) => {
       }
     };
 
-    document.addEventListener('pointerlockchange', onPointerLockChange);
-    window.addEventListener('keydown', onKeyDown);
+    document.addEventListener("pointerlockchange", onPointerLockChange);
+    window.addEventListener("keydown", onKeyDown);
     return () => {
-      document.removeEventListener('pointerlockchange', onPointerLockChange);
-      window.removeEventListener('keydown', onKeyDown);
+      document.removeEventListener("pointerlockchange", onPointerLockChange);
+      window.removeEventListener("keydown", onKeyDown);
     };
   }, [matchState]);
 
-  if (matchState === 'waiting') {
-    const activeRoomCode = socket.io.opts.query && (socket.io.opts.query as any).room;
-    const isCustom = activeRoomCode && activeRoomCode !== 'QUICK';
+  if (matchState === "waiting") {
+    const activeRoomCode =
+      socket.io.opts.query && (socket.io.opts.query as any).room;
+    const isCustom = activeRoomCode && activeRoomCode !== "QUICK";
     return (
       <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-gray-900/90 text-white font-sans backdrop-blur-sm select-none">
-        <h1 className="text-5xl font-black mb-4 tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-500">SNIPER DUEL</h1>
-        <p className="text-xl animate-pulse text-gray-300">Waiting for opponent to connect...</p>
-        
+        <h1 className="text-5xl font-black mb-4 tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-500">
+          SNIPER DUEL
+        </h1>
+        <p className="text-xl animate-pulse text-gray-300">
+          Waiting for opponent to connect...
+        </p>
+
         {isCustom ? (
           <div className="mt-4 bg-black/40 border border-white/10 px-6 py-4 rounded-2xl text-center">
-            <p className="text-xs text-gray-400 uppercase tracking-widest font-bold mb-1">Lobby Code</p>
-            <p className="text-3xl font-mono font-black tracking-widest text-blue-400">{activeRoomCode}</p>
-            <p className="text-xs text-gray-500 mt-2">Give this code to your opponent!</p>
+            <p className="text-xs text-gray-400 uppercase tracking-widest font-bold mb-1">
+              Lobby Code
+            </p>
+            <p className="text-3xl font-mono font-black tracking-widest text-blue-400">
+              {activeRoomCode}
+            </p>
+            <p className="text-xs text-gray-500 mt-2">
+              Give this code to your opponent!
+            </p>
           </div>
         ) : (
-          <p className="text-sm mt-4 text-gray-500">Share this link with a friend to play.</p>
+          <p className="text-sm mt-4 text-gray-500">
+            Share this link with a friend to play.
+          </p>
         )}
 
         <div className="mt-12 text-center text-gray-500 text-sm flex flex-col gap-2">
@@ -215,7 +291,9 @@ const UIOverlay = ({ onQuit }: { onQuit: () => void }) => {
           <div className="grid grid-cols-2 gap-4 text-left mb-6">
             <p className="bg-gray-800 px-3 py-1 rounded">WASD: Move</p>
             <p className="bg-gray-800 px-3 py-1 rounded">SPACE: Jump</p>
-            <p className="bg-gray-800 px-3 py-1 rounded">SHIFT: Sprint / Hold Breath</p>
+            <p className="bg-gray-800 px-3 py-1 rounded">
+              SHIFT: Sprint / Hold Breath
+            </p>
             <p className="bg-gray-800 px-3 py-1 rounded">C: Crouch</p>
             <p className="bg-gray-800 px-3 py-1 rounded">LMB: Shoot</p>
             <p className="bg-gray-800 px-3 py-1 rounded">RMB: Scope</p>
@@ -235,13 +313,21 @@ const UIOverlay = ({ onQuit }: { onQuit: () => void }) => {
     );
   }
 
-  if (matchState === 'ended') {
+  if (matchState === "ended") {
     const isWinner = winner === myId;
     return (
-      <div className={`absolute inset-0 z-50 flex flex-col items-center justify-center text-white font-sans backdrop-blur-md select-none ${isWinner ? 'bg-blue-900/80 text-blue-100' : 'bg-red-900/80 text-red-100'}`}>
-        <h1 className="text-7xl font-black mb-4 tracking-tighter uppercase">{isWinner ? 'VICTORY' : 'DEFEAT'}</h1>
-        <p className="text-2xl mb-8">Score: {myPlayerState?.kills} - {opponentState?.kills}</p>
-        <p className="text-lg animate-pulse mb-8">Restarting match shortly...</p>
+      <div
+        className={`absolute inset-0 z-50 flex flex-col items-center justify-center text-white font-sans backdrop-blur-md select-none ${isWinner ? "bg-blue-900/80 text-blue-100" : "bg-red-900/80 text-red-100"}`}
+      >
+        <h1 className="text-7xl font-black mb-4 tracking-tighter uppercase">
+          {isWinner ? "VICTORY" : "DEFEAT"}
+        </h1>
+        <p className="text-2xl mb-8">
+          Score: {myPlayerState?.kills} - {opponentState?.kills}
+        </p>
+        <p className="text-lg animate-pulse mb-8">
+          Restarting match shortly...
+        </p>
 
         <button
           onClick={() => {
@@ -259,15 +345,14 @@ const UIOverlay = ({ onQuit }: { onQuit: () => void }) => {
   return (
     <>
       {showSettings && <SettingsMenu onQuit={onQuit} />}
-      
+
       <div className="pointer-events-none absolute inset-0 z-10 flex flex-col justify-between p-6 select-none font-sans">
-        
         {/* Top HUD */}
         <div className="flex justify-between items-start text-white">
           <div className="bg-black/50 backdrop-blur-md p-4 rounded-xl border border-white/10 flex items-center gap-6">
             <div className="text-center">
               <p className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-1">
-                {myPlayerState?.nickname || 'YOU'}
+                {myPlayerState?.nickname || "YOU"}
               </p>
               <p className="text-4xl font-black">{myPlayerState?.kills || 0}</p>
             </div>
@@ -276,29 +361,48 @@ const UIOverlay = ({ onQuit }: { onQuit: () => void }) => {
                 <div className="text-3xl font-black text-gray-600">-</div>
                 <div className="text-center">
                   <p className="text-xs font-bold text-red-400 uppercase tracking-widest mb-1">
-                    {opponentState?.nickname || 'ENEMY'}
+                    {opponentState?.nickname || "ENEMY"}
                   </p>
-                  <p className="text-4xl font-black">{opponentState?.kills || 0}</p>
+                  <p className="text-4xl font-black">
+                    {opponentState?.kills || 0}
+                  </p>
                 </div>
               </>
             )}
           </div>
-          
+
           <div className="bg-black/50 backdrop-blur-md px-6 py-3 rounded-xl border border-white/10 text-center">
-            <p className="text-2xl font-mono font-bold tracking-widest">{formatTime(timeRemaining)}</p>
+            <p className="text-2xl font-mono font-bold tracking-widest">
+              {formatTime(timeRemaining)}
+            </p>
           </div>
         </div>
 
         {/* Kill Feed */}
         <div className="absolute top-24 right-6 flex flex-col gap-2 items-end">
-          {killFeed.map(k => (
-            <div key={k.id} className="bg-gradient-to-r from-transparent to-red-600/60 pl-8 pr-4 py-1 flex items-center gap-3 animate-pulse border-r-4 border-red-500 rounded-l-full shadow-lg">
+          {killFeed.map((k) => (
+            <div
+              key={k.id}
+              className="bg-gradient-to-r from-transparent to-red-600/60 pl-8 pr-4 py-1 flex items-center gap-3 animate-pulse border-r-4 border-red-500 rounded-l-full shadow-lg"
+            >
               <span className="font-bold text-white">
-                {players[k.killer]?.nickname || (k.killer === myId ? 'You' : (k.killer.startsWith('target_') ? 'Target' : 'Enemy'))}
+                {players[k.killer]?.nickname ||
+                  (k.killer === myId
+                    ? "You"
+                    : k.killer.startsWith("target_")
+                      ? "Target"
+                      : "Enemy")}
               </span>
-              <span className="text-sm text-red-100">sniped {k.headshot && '(Headshot)'}</span>
+              <span className="text-sm text-red-100">
+                sniped {k.headshot && "(Headshot)"}
+              </span>
               <span className="font-bold text-white">
-                {players[k.victim]?.nickname || (k.victim === myId ? 'You' : (k.victim.startsWith('target_') ? 'Target' : 'Enemy'))}
+                {players[k.victim]?.nickname ||
+                  (k.victim === myId
+                    ? "You"
+                    : k.victim.startsWith("target_")
+                      ? "Target"
+                      : "Enemy")}
               </span>
             </div>
           ))}
@@ -308,13 +412,21 @@ const UIOverlay = ({ onQuit }: { onQuit: () => void }) => {
         <div className="flex justify-between items-end">
           {/* Ammo (Left) */}
           <div className="bg-black/50 backdrop-blur-md p-6 rounded-xl border border-white/10 text-left shadow-[0_0_20px_rgba(0,0,0,0.5)] min-w-[200px]">
-            <div className="text-sm font-bold text-gray-400 tracking-widest mb-2">AMMO</div>
+            <div className="text-sm font-bold text-gray-400 tracking-widest mb-2">
+              AMMO
+            </div>
             <div className="flex items-center gap-2">
               {isReloading ? (
-                <span className="text-2xl font-black text-yellow-500 animate-pulse uppercase tracking-wider">RELOADING...</span>
+                <span className="text-2xl font-black text-yellow-500 animate-pulse uppercase tracking-wider">
+                  RELOADING...
+                </span>
               ) : (
                 <>
-                  <span className={`text-5xl font-black ${ammo === 0 ? 'text-red-500' : 'text-white'}`}>{ammo}</span>
+                  <span
+                    className={`text-5xl font-black ${ammo === 0 ? "text-red-500" : "text-white"}`}
+                  >
+                    {ammo}
+                  </span>
                   <span className="text-2xl text-gray-500 font-black">/ 5</span>
                 </>
               )}
@@ -324,13 +436,20 @@ const UIOverlay = ({ onQuit }: { onQuit: () => void }) => {
           {/* Health (Right) */}
           <div className="bg-black/50 backdrop-blur-md p-6 rounded-xl border border-white/10 w-80 shadow-[0_0_20px_rgba(0,0,0,0.5)]">
             <div className="flex justify-between items-end mb-2">
-              <span className="text-sm font-bold text-gray-400 tracking-widest">HP // {Math.max(0, health)}</span>
-              <span className="text-3xl font-black text-white">{Math.max(0, health)}</span>
+              <span className="text-sm font-bold text-gray-400 tracking-widest">
+                HP // {Math.max(0, health)}
+              </span>
+              <span className="text-3xl font-black text-white">
+                {Math.max(0, health)}
+              </span>
             </div>
             <div className="h-4 w-full bg-gray-900 rounded overflow-hidden flex justify-end">
-              <div 
+              <div
                 className="h-full transition-all duration-300 ease-out"
-                style={{ width: `${Math.max(0, health)}%`, backgroundColor: health <= 30 ? '#ef4444' : 'white' }}
+                style={{
+                  width: `${Math.max(0, health)}%`,
+                  backgroundColor: health <= 30 ? "#ef4444" : "white",
+                }}
               />
             </div>
           </div>
@@ -340,29 +459,49 @@ const UIOverlay = ({ onQuit }: { onQuit: () => void }) => {
       {/* Scope Overlay */}
       {isScoped ? (
         <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center select-none animate-in fade-in zoom-in-95 duration-150">
-          <div className="relative w-[110vmin] h-[110vmin] rounded-full overflow-hidden border-[40px] border-black flex items-center justify-center shadow-[inset_0_0_100px_50px_rgba(0,0,0,0.8)]" style={{ background: 'transparent' }}>
-            
+          <div
+            className="relative w-[110vmin] h-[110vmin] rounded-full overflow-hidden border-[40px] border-black flex items-center justify-center shadow-[inset_0_0_100px_50px_rgba(0,0,0,0.8)]"
+            style={{ background: "transparent" }}
+          >
             {/* Crosshair lines inside scope */}
             <div className="absolute h-full w-[2px] bg-black/90 opacity-80" />
             <div className="absolute w-full h-[2px] bg-black/90 opacity-80" />
-            
+
             {/* Red dot center */}
             <div className="absolute h-1.5 w-1.5 bg-red-500 rounded-full shadow-[0_0_10px_red]" />
-            
+
             {/* Mil-dots */}
-            {[...Array(9)].map((_,i) => i !== 4 && (
-              <div key={`h${i}`} className="absolute h-[15px] w-[2px] bg-black/80" style={{ left: `${10 + i*10}%` }}></div>
-            ))}
-            {[...Array(9)].map((_,i) => i !== 4 && (
-              <div key={`v${i}`} className="absolute w-[15px] h-[2px] bg-black/80" style={{ top: `${10 + i*10}%` }}></div>
-            ))}
+            {[...Array(9)].map(
+              (_, i) =>
+                i !== 4 && (
+                  <div
+                    key={`h${i}`}
+                    className="absolute h-[15px] w-[2px] bg-black/80"
+                    style={{ left: `${10 + i * 10}%` }}
+                  ></div>
+                ),
+            )}
+            {[...Array(9)].map(
+              (_, i) =>
+                i !== 4 && (
+                  <div
+                    key={`v${i}`}
+                    className="absolute w-[15px] h-[2px] bg-black/80"
+                    style={{ top: `${10 + i * 10}%` }}
+                  ></div>
+                ),
+            )}
           </div>
         </div>
       ) : (
         <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center mix-blend-difference select-none">
           {/* Dynamic Hipfire Crosshair */}
-          <div className="relative flex items-center justify-center opacity-70 transition-all duration-100 ease-out" 
-            style={{ transform: `scale(${isReloading ? 1.5 : (ammo === 0 ? 0.8 : 1)})` }}>
+          <div
+            className="relative flex items-center justify-center opacity-70 transition-all duration-100 ease-out"
+            style={{
+              transform: `scale(${isReloading ? 1.5 : ammo === 0 ? 0.8 : 1})`,
+            }}
+          >
             <div className="absolute h-[2px] w-[2px] rounded-full bg-white shadow-[0_0_4px_white]"></div>
             <div className="absolute h-3 w-[2px] -translate-y-4 bg-white opacity-80"></div>
             <div className="absolute h-3 w-[2px] translate-y-4 bg-white opacity-80"></div>
@@ -377,16 +516,31 @@ const UIOverlay = ({ onQuit }: { onQuit: () => void }) => {
         // Show hitmarker for 200ms
         const age = Date.now() - h.createdAt;
         if (age > 200) return null;
-        const color = h.headshot ? 'bg-red-500' : 'bg-white';
-        const shadow = h.headshot ? 'shadow-[0_0_8px_red]' : '';
-        
+        const color = h.headshot ? "bg-red-500" : "bg-white";
+        const shadow = h.headshot ? "shadow-[0_0_8px_red]" : "";
+
         return (
-          <div key={h.id} className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center select-none opacity-80 animate-ping" style={{ animationDuration: '0.2s' }}>
-            <div className="relative w-8 h-8 flex items-center justify-center" style={{ transform: 'rotate(45deg)' }}>
-              <div className={`absolute h-4 w-[2px] -translate-y-3 ${color} ${shadow}`}></div>
-              <div className={`absolute h-4 w-[2px] translate-y-3 ${color} ${shadow}`}></div>
-              <div className={`absolute h-[2px] w-4 -translate-x-3 ${color} ${shadow}`}></div>
-              <div className={`absolute h-[2px] w-4 translate-x-3 ${color} ${shadow}`}></div>
+          <div
+            key={h.id}
+            className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center select-none opacity-80 animate-ping"
+            style={{ animationDuration: "0.2s" }}
+          >
+            <div
+              className="relative w-8 h-8 flex items-center justify-center"
+              style={{ transform: "rotate(45deg)" }}
+            >
+              <div
+                className={`absolute h-4 w-[2px] -translate-y-3 ${color} ${shadow}`}
+              ></div>
+              <div
+                className={`absolute h-4 w-[2px] translate-y-3 ${color} ${shadow}`}
+              ></div>
+              <div
+                className={`absolute h-[2px] w-4 -translate-x-3 ${color} ${shadow}`}
+              ></div>
+              <div
+                className={`absolute h-[2px] w-4 translate-x-3 ${color} ${shadow}`}
+              ></div>
             </div>
           </div>
         );
@@ -400,14 +554,18 @@ const UIOverlay = ({ onQuit }: { onQuit: () => void }) => {
       {/* Death Screen */}
       {health <= 0 && (
         <div className="pointer-events-none absolute inset-0 z-40 bg-red-950/40 backdrop-blur-sm flex flex-col items-center justify-center animate-in fade-in duration-1000">
-          <h2 className="text-7xl font-black text-red-500 tracking-widest drop-shadow-[0_0_20px_rgba(239,68,68,0.8)] uppercase">Wasted</h2>
-          <p className="text-xl text-white mt-4 animate-pulse">Waiting for respawn...</p>
+          <h2 className="text-7xl font-black text-red-500 tracking-widest drop-shadow-[0_0_20px_rgba(239,68,68,0.8)] uppercase">
+            Wasted
+          </h2>
+          <p className="text-xl text-white mt-4 animate-pulse">
+            Waiting for respawn...
+          </p>
         </div>
       )}
 
       {/* Click interceptor to lock pointer */}
       {!showSettings && (
-        <div 
+        <div
           className="absolute inset-0 z-0 cursor-crosshair"
           onClick={() => {
             if (document.pointerLockElement !== document.body) {
@@ -426,26 +584,26 @@ const UIOverlay = ({ onQuit }: { onQuit: () => void }) => {
 };
 
 const NameSetup = ({ onComplete }: { onComplete: (name: string) => void }) => {
-  const [name, setName] = useState('');
-  const [error, setError] = useState('');
+  const [name, setName] = useState("");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanName = name.trim();
     if (cleanName.length < 3) {
-      setError('Name must be at least 3 characters.');
+      setError("Name must be at least 3 characters.");
       return;
     }
 
     setLoading(true);
-    setError('');
-    
+    setError("");
+
     try {
       onComplete(cleanName);
     } catch (err: any) {
       console.error(err);
-      setError(err.message || 'Failed to authenticate.');
+      setError(err.message || "Failed to authenticate.");
       setLoading(false);
     }
   };
@@ -453,12 +611,16 @@ const NameSetup = ({ onComplete }: { onComplete: (name: string) => void }) => {
   return (
     <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black">
       <div className="bg-gray-900 border border-white/10 p-10 rounded-2xl w-full max-w-md shadow-2xl">
-        <h2 className="text-3xl font-black italic tracking-widest text-blue-400 uppercase mb-8 text-center">Sniper Rivals</h2>
+        <h2 className="text-3xl font-black italic tracking-widest text-blue-400 uppercase mb-8 text-center">
+          Sniper Rivals
+        </h2>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label className="block text-xs font-black text-gray-500 uppercase tracking-[0.2em] mb-2 px-1 text-center">Enter Your Name</label>
-            <input 
-              type="text" 
+            <label className="block text-xs font-black text-gray-500 uppercase tracking-[0.2em] mb-2 px-1 text-center">
+              Enter Your Name
+            </label>
+            <input
+              type="text"
               value={name}
               onChange={(e) => setName(e.target.value.substring(0, 16))}
               placeholder="Your Name"
@@ -466,13 +628,17 @@ const NameSetup = ({ onComplete }: { onComplete: (name: string) => void }) => {
               className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-4 text-center text-xl font-bold text-white focus:outline-none focus:border-blue-500/50 transition-all"
             />
           </div>
-          {error && <div className="text-red-500 text-sm font-bold text-center animate-pulse">{error}</div>}
-          <button 
+          {error && (
+            <div className="text-red-500 text-sm font-bold text-center animate-pulse">
+              {error}
+            </div>
+          )}
+          <button
             type="submit"
             disabled={loading || name.trim().length < 3}
-            className={`w-full font-black py-4 rounded-xl transition-all uppercase flex items-center justify-center ${loading || name.trim().length < 3 ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 text-white shadow-[0_0_20px_rgba(37,99,235,0.3)]'}`}
+            className={`w-full font-black py-4 rounded-xl transition-all uppercase flex items-center justify-center ${loading || name.trim().length < 3 ? "bg-gray-800 text-gray-500 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-500 text-white shadow-[0_0_20px_rgba(37,99,235,0.3)]"}`}
           >
-            {loading ? 'Checking...' : 'Enter Arena'}
+            {loading ? "Checking..." : "Enter Arena"}
           </button>
         </form>
       </div>
@@ -485,7 +651,215 @@ export default function App() {
   const [inMenu, setInMenu] = useState(true);
   const [connected, setConnected] = useState(false);
   const [gameFull, setGameFull] = useState(false);
-  const [customPlayOptions, setCustomPlayOptions] = useState<{ name?: string, roomCode?: string } | null>(null);
+  const [customPlayOptions, setCustomPlayOptions] = useState<{
+    name?: string;
+    roomCode?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    let botInterval: number | null = null;
+    const botState: Record<string, { state: 'idle' | 'patrol' | 'attack' | 'flee', target: {x: number, z: number} | null, lastShoot: number, strafeDir: number, stuckTimer: number, lastPos: {x: number, z: number}, changeTargetAt: number }> = {};
+    
+    if (inMenu || !connected) {
+      if (botInterval) clearInterval(botInterval);
+      return;
+    }
+
+    const roomCode = customPlayOptions?.roomCode || socket.io.opts.query.room;
+    if (roomCode?.startsWith("BOT_")) {
+      const difficulty = roomCode.split("_")[1] || "EASY";
+      let moveSpeed = 0.04;
+      let shootChance = 0.02;
+      let reactionTime = 2000;
+      let accuracyBase = 0.35;
+      
+      if (difficulty === "MEDIUM") { moveSpeed = 0.06; shootChance = 0.04; reactionTime = 900; accuracyBase = 0.6; }
+      if (difficulty === "HARD") { moveSpeed = 0.09; shootChance = 0.08; reactionTime = 300; accuracyBase = 0.85; }
+      if (difficulty === "IMPOSSIBLE") { moveSpeed = 0.12; shootChance = 0.12; reactionTime = 100; accuracyBase = 0.95; }
+
+      botInterval = window.setInterval(() => {
+        const db = useGameStore.getState();
+        const myId = db.myId;
+        const myPlayer = myId ? db.players[myId] : null;
+        const now = Date.now();
+
+        if (!myPlayer || db.matchState !== "playing") return;
+
+        Object.entries(db.players).forEach(([id, bot]) => {
+          if (!id.startsWith("bot_") || bot.health <= 0) return;
+
+          if (!botState[id]) {
+            botState[id] = { state: 'patrol', target: null, lastShoot: 0, strafeDir: Math.random() > 0.5 ? 1 : -1, stuckTimer: 0, lastPos: {x: bot.x, z: bot.z}, changeTargetAt: now };
+          }
+          const bs = botState[id];
+
+          const dx = myPlayer.x - bot.x;
+          const dz = myPlayer.z - bot.z;
+          const dist = Math.sqrt(dx * dx + dz * dz);
+          const hasSight = dist < (difficulty === "EASY" ? 50 : difficulty === "MEDIUM" ? 80 : 120);
+          
+          let newX = bot.x;
+          let newZ = bot.z;
+          let newRy = bot.ry;
+          let isMoving = false;
+
+          // Check if stuck
+          const dLast = Math.sqrt(Math.pow(bot.x - bs.lastPos.x, 2) + Math.pow(bot.z - bs.lastPos.z, 2));
+          if (dLast < 0.1 && bs.state !== 'idle') {
+            bs.stuckTimer += 50;
+            if (bs.stuckTimer > 1000) {
+              bs.target = { x: bot.x + (Math.random() - 0.5) * 40, z: bot.z + (Math.random() - 0.5) * 40 };
+              bs.stuckTimer = 0;
+            }
+          } else {
+            bs.stuckTimer = 0;
+          }
+          bs.lastPos = { x: bot.x, z: bot.z };
+
+          if (hasSight) {
+             bs.state = 'attack';
+          } else if (bs.state === 'attack') {
+             bs.state = 'patrol';
+             bs.target = { x: myPlayer.x, z: myPlayer.z }; // Go to last known pos
+          }
+
+          if (bs.state === 'patrol' || bs.state === 'idle') {
+             if (now > bs.changeTargetAt || !bs.target) {
+                if (Math.random() < (difficulty === "EASY" ? 0.3 : 0.05)) {
+                   bs.state = 'idle';
+                   bs.changeTargetAt = now + 1000 + Math.random() * 2000;
+                } else {
+                   bs.state = 'patrol';
+                   bs.target = { x: (Math.random() - 0.5) * 80, z: (Math.random() - 0.5) * 80 };
+                   bs.changeTargetAt = now + 4000 + Math.random() * 4000;
+                }
+             }
+
+             if (bs.state === 'patrol' && bs.target) {
+                const tdx = bs.target.x - bot.x;
+                const tdz = bs.target.z - bot.z;
+                const tdist = Math.sqrt(tdx * tdx + tdz * tdz);
+                if (tdist > 1) {
+                   newX += (tdx / tdist) * moveSpeed;
+                   newZ += (tdz / tdist) * moveSpeed;
+                   newRy = Math.atan2(-tdx, -tdz);
+                   isMoving = true;
+                } else {
+                   bs.target = null;
+                }
+             }
+          } else if (bs.state === 'attack') {
+             isMoving = true;
+             newRy = Math.atan2(-dx, -dz);
+             
+             if (difficulty === "EASY") {
+                if (dist > 25) {
+                   newX += (dx / dist) * moveSpeed * 0.8;
+                   newZ += (dz / dist) * moveSpeed * 0.8;
+                } else {
+                   if (Math.random() < 0.02) bs.strafeDir *= -1;
+                   if (Math.random() < 0.1) {
+                     isMoving = false; // Stop sometimes
+                   } else {
+                     newX += Math.cos(newRy) * (moveSpeed * 0.5) * bs.strafeDir;
+                     newZ += -Math.sin(newRy) * (moveSpeed * 0.5) * bs.strafeDir;
+                   }
+                }
+             } else if (difficulty === "MEDIUM") {
+                if (dist > 20) {
+                   newX += (dx / dist) * moveSpeed;
+                   newZ += (dz / dist) * moveSpeed;
+                } else {
+                   if (Math.random() < 0.05) bs.strafeDir *= -1;
+                   newX += Math.cos(newRy) * moveSpeed * bs.strafeDir;
+                   newZ += -Math.sin(newRy) * moveSpeed * bs.strafeDir;
+                }
+             } else {
+                // HARD / IMPOSSIBLE
+                if (dist < 15) {
+                   // Flee a bit while looking at player
+                   newX -= (dx / dist) * moveSpeed;
+                   newZ -= (dz / dist) * moveSpeed;
+                   newRy = Math.atan2(-dx, -dz);
+                } else if (dist > 30) {
+                   newX += (dx / dist) * moveSpeed;
+                   newZ += (dz / dist) * moveSpeed;
+                } else {
+                   // Aggressive strafe
+                   if (Math.random() < 0.1) bs.strafeDir *= -1;
+                   newX += Math.cos(newRy) * (moveSpeed * 1.5) * bs.strafeDir;
+                   newZ += -Math.sin(newRy) * (moveSpeed * 1.5) * bs.strafeDir;
+                }
+             }   
+             
+             // Jump randomly
+             // (jump logic is harder to simulate strictly without updating y physics, 
+             // but we can jitter x/z slightly)
+             
+             // Shooting
+             if (myPlayer.health > 0 && now - bs.lastShoot > reactionTime) {
+                if (Math.random() < shootChance) {
+                   bs.lastShoot = now;
+                   
+                   db.addBullet({
+                     id: Math.random().toString(36).substr(2, 9),
+                     position: [bot.x, bot.y + 0.5, bot.z],
+                     direction: [dx / dist, 0, dz / dist],
+                   });
+                   playSound("shoot");
+
+                   setTimeout(() => {
+                      if (Math.random() < accuracyBase) {
+                        const currentStore = useGameStore.getState();
+                        const currentP = currentStore.players[myId];
+                        if (!currentP || currentP.health <= 0) return;
+
+                        const isHeadshot = Math.random() < (difficulty === 'IMPOSSIBLE' ? 0.3 : difficulty === 'HARD' ? 0.2 : 0.05);
+                        const damage = isHeadshot ? 100 : 35;
+                        const newHealth = Math.max(0, currentP.health - damage);
+                        
+                        currentStore.updatePlayer(myId, { health: newHealth });
+                        currentStore.setLocalState({ health: newHealth });
+                        playSound(isHeadshot ? "headshot" : "hit");
+
+                        if (newHealth <= 0 && currentP.health > 0) {
+                            playSound("death");
+                            currentStore.updatePlayer(myId, { deaths: (currentP.deaths || 0) + 1, health: 0 });
+                            currentStore.updatePlayer(id, { kills: (currentStore.players[id]?.kills || 0) + 1 });
+                            currentStore.addKillFeed(id, myId, isHeadshot);
+                            
+                            setTimeout(() => {
+                               const store = useGameStore.getState();
+                               const spawn = getSafeSpawnPosition(10);
+                               store.updatePlayer(myId, { health: 100, x: spawn.x, y: spawn.y, z: spawn.z });
+                               store.setLocalState({
+                                 health: 100,
+                                 ammo: 5,
+                                 isReloading: false,
+                                 isScoped: false,
+                                 teleportTo: [spawn.x, spawn.y, spawn.z]
+                               });
+                            }, 3000);
+                        }
+                      }
+                   }, dist * 5); // Fake travel time
+                }
+             }
+          }
+
+          // Bound the bots to reasonable map size
+          newX = Math.max(-48, Math.min(48, newX));
+          newZ = Math.max(-48, Math.min(48, newZ));
+
+          db.updatePlayer(id, { x: newX, z: newZ, ry: newRy, isMoving });
+        });
+      }, 50);
+    }
+
+    return () => {
+      if (botInterval) clearInterval(botInterval);
+    };
+  }, [inMenu, connected, customPlayOptions]);
 
   useEffect(() => {
     if (inMenu || !globalName) return;
@@ -495,147 +869,265 @@ export default function App() {
     if (customPlayOptions) {
       socket.io.opts.query = {
         name: globalName,
-        room: customPlayOptions.roomCode || 'QUICK',
+        room: customPlayOptions.roomCode || "QUICK",
         outfitColor: settings.outfitColor,
-        eyeColor: settings.eyeColor
+        eyeColor: settings.eyeColor,
       };
     } else {
       socket.io.opts.query = {
         name: globalName,
-        room: 'QUICK',
+        room: "QUICK",
         outfitColor: settings.outfitColor,
-        eyeColor: settings.eyeColor
+        eyeColor: settings.eyeColor,
       };
     }
 
     socket.connect();
 
-    socket.on('connect', () => {
+    socket.on("connect", () => {
       setConnected(true);
     });
 
-    socket.on('gameFull', () => {
+    socket.on("gameFull", () => {
       setGameFull(true);
     });
 
-    socket.on('gameState', (state: any) => {
+    socket.on("gameState", (state: any) => {
       useGameStore.getState().updateGameState(state);
     });
 
-    socket.on('init', (data: any) => {
+    socket.on("init", (data: any) => {
       useGameStore.getState().setMyId(data.id);
-      useGameStore.getState().updateGameState({ matchState: data.matchState, timeRemaining: data.timeRemaining });
+      useGameStore
+        .getState()
+        .updateGameState({
+          matchState: data.matchState,
+          timeRemaining: data.timeRemaining,
+        });
       Object.entries(data.players).forEach(([id, pInfo]: [string, any]) => {
         useGameStore.getState().updatePlayer(id, pInfo);
-        if (id === data.id) useGameStore.getState().setLocalState({ health: pInfo.health });
+        if (id === data.id)
+          useGameStore.getState().setLocalState({ health: pInfo.health });
       });
     });
 
-    socket.on('playerJoined', (data: { id: string, player: any }) => {
+    socket.on("playerJoined", (data: { id: string; player: any }) => {
       useGameStore.getState().updatePlayer(data.id, data.player);
     });
-    
-    socket.on('matchStarted', (data: any) => {
-      useGameStore.getState().updateGameState({ matchState: 'playing' });
+
+    socket.on("matchStarted", (data: any) => {
+      useGameStore.getState().updateGameState({ matchState: "playing" });
       // Reset local state
-      
+
       const myId = useGameStore.getState().myId;
       if (myId && data.players[myId]) {
-         const playerStart = data.players[myId];
-         useGameStore.getState().setLocalState({ 
-            health: 100, 
-            ammo: 5, 
-            isReloading: false, 
-            isScoped: false,
-            teleportTo: [playerStart.x, playerStart.y, playerStart.z]
-         });
-         useGameStore.getState().updatePlayer(myId, playerStart);
+        const playerStart = data.players[myId];
+        useGameStore.getState().setLocalState({
+          health: 100,
+          ammo: 5,
+          isReloading: false,
+          isScoped: false,
+          teleportTo: [playerStart.x, playerStart.y, playerStart.z],
+        });
+        useGameStore.getState().updatePlayer(myId, playerStart);
       } else {
-         useGameStore.getState().setLocalState({ health: 100, ammo: 5, isReloading: false, isScoped: false });
+        useGameStore
+          .getState()
+          .setLocalState({
+            health: 100,
+            ammo: 5,
+            isReloading: false,
+            isScoped: false,
+          });
+      }
+
+      const currentRoom = customPlayOptions?.roomCode || socket.io.opts.query.room || "QUICK";
+
+      if (currentRoom === "TRAINING_GROUND") {
+        for (let i = 0; i < 20; i++) {
+          const tId = `target_${i}`;
+          const spawnPos = getSafeSpawnPosition(0.8);
+          useGameStore.getState().updatePlayer(tId, {
+            nickname: `Target ${i + 1}`,
+            x: spawnPos.x,
+            y: spawnPos.y,
+            z: spawnPos.z,
+            rx: 0,
+            ry: Math.random() * Math.PI * 2,
+            health: 1,
+            isTarget: true,
+            isMoving: false,
+            isJumping: false,
+            outfitColor: "#ff0000",
+            eyeColor: "#000000",
+          });
+        }
+      } else if (currentRoom.startsWith("BOT_")) {
+        const parts = currentRoom.split('_');
+        const count = parseInt(parts[2]) || 5;
+        for (let i = 0; i < count; i++) {
+          const tId = `bot_${i}`;
+          const spawnPos = getSafeSpawnPosition(1.05);
+          useGameStore.getState().updatePlayer(tId, {
+            nickname: `Bot ${i + 1}`,
+            x: spawnPos.x,
+            y: spawnPos.y,
+            z: spawnPos.z,
+            rx: 0,
+            ry: Math.random() * Math.PI * 2,
+            health: 100,
+            isTarget: false,
+            isBot: true,
+            isMoving: false,
+            isJumping: false,
+            outfitColor: "#2b6cb0",
+            eyeColor: "#ff0000",
+          });
+        }
       }
     });
 
-    socket.on('matchEnded', (data: any) => {
-      useGameStore.getState().updateGameState({ matchState: 'ended', winner: data.winner });
+    socket.on("matchEnded", (data: any) => {
+      useGameStore
+        .getState()
+        .updateGameState({ matchState: "ended", winner: data.winner });
       useGameStore.getState().setLocalState({ isScoped: false });
       document.exitPointerLock();
     });
 
-    socket.on('timeUpdate', (time: number) => {
+    socket.on("timeUpdate", (time: number) => {
       useGameStore.getState().updateGameState({ timeRemaining: time });
     });
 
-    socket.on('playerMoved', (data: { id: string, player: any }) => {
+    socket.on("playerMoved", (data: { id: string; player: any }) => {
       useGameStore.getState().updatePlayer(data.id, data.player);
     });
 
-    socket.on('playerShoot', (data: { id: string, position: [number, number, number], direction: [number, number, number], hitPoint?: [number, number, number] | null, bulletId?: string }) => {
-      useGameStore.getState().addBullet({
-        id: data.bulletId || Math.random().toString(36).substring(7),
-        position: data.position,
-        direction: data.direction,
-        hitPoint: data.hitPoint
-      });
-      playSound('shoot');
-    });
+    socket.on(
+      "playerShoot",
+      (data: {
+        id: string;
+        position: [number, number, number];
+        direction: [number, number, number];
+        hitPoint?: [number, number, number] | null;
+        bulletId?: string;
+      }) => {
+        useGameStore.getState().addBullet({
+          id: data.bulletId || Math.random().toString(36).substring(7),
+          position: data.position,
+          direction: data.direction,
+          hitPoint: data.hitPoint,
+        });
+        playSound("shoot");
+      },
+    );
 
-    socket.on('playerHit', (data: { id: string, damage: number, shooterId: string, headshot: boolean }) => {
-      const myId = useGameStore.getState().myId;
-      useGameStore.getState().updatePlayer(data.id, { health: Math.max(0, useGameStore.getState().players[data.id].health - data.damage) });
-      
-      if (data.id === myId) {
-        playSound('hit'); // we got hit
-        useGameStore.getState().setLocalState({ health: Math.max(0, useGameStore.getState().health - data.damage) });
-      }
-    });
+    socket.on(
+      "playerHit",
+      (data: {
+        id: string;
+        damage: number;
+        shooterId: string;
+        headshot: boolean;
+      }) => {
+        const myId = useGameStore.getState().myId;
+        const currentHealth =
+          useGameStore.getState().players[data.id]?.health ?? 100;
+        const newHealth = Math.max(0, currentHealth - data.damage);
+        useGameStore.getState().updatePlayer(data.id, { health: newHealth });
 
-    socket.on('playerDied', (data: { victimId: string, killerId: string, kills: number, deaths: number }) => {
-      const db = useGameStore.getState();
-      db.updatePlayer(data.killerId, { kills: data.kills });
-      db.updatePlayer(data.victimId, { deaths: data.deaths, health: 0 });
-      db.addKillFeed(data.killerId, data.victimId, false);
-      
-      if (data.victimId === db.myId) {
-        playSound('death');
-        db.setLocalState({ isScoped: false });
-      }
-    });
+        if (data.id === myId) {
+          playSound("hit"); // we got hit
+          useGameStore.getState().setLocalState({ health: newHealth });
+        } else if (
+          (data.id.startsWith("target_") || data.id.startsWith("bot_")) &&
+          currentHealth > 0 &&
+          newHealth === 0
+        ) {
+          // Dummy died, simulate death locally
+          setTimeout(() => {
+            const db = useGameStore.getState();
+            const kills = (db.players[data.shooterId]?.kills || 0) + 1;
+            db.updatePlayer(data.shooterId, { kills });
+            db.updatePlayer(data.id, {
+              deaths: (db.players[data.id]?.deaths || 0) + 1,
+              health: 0,
+            });
+            db.addKillFeed(data.shooterId, data.id, data.headshot);
 
-    socket.on('playerRespawned', (data: { id: string, player: any }) => {
+            // Respawn dummy after delay
+            setTimeout(() => {
+              const yPos = data.id.startsWith("target_") ? 0.8 : 1.05;
+              const spawnPos = getSafeSpawnPosition(yPos);
+              useGameStore.getState().updatePlayer(data.id, {
+                health: data.id.startsWith("bot_") ? 100 : 1,
+                x: spawnPos.x,
+                y: spawnPos.y,
+                z: spawnPos.z,
+                rx: 0,
+                ry: Math.random() * Math.PI * 2,
+              });
+            }, 3000);
+          }, 50);
+        }
+      },
+    );
+
+    socket.on(
+      "playerDied",
+      (data: {
+        victimId: string;
+        killerId: string;
+        kills: number;
+        deaths: number;
+      }) => {
+        const db = useGameStore.getState();
+        db.updatePlayer(data.killerId, { kills: data.kills });
+        db.updatePlayer(data.victimId, { deaths: data.deaths, health: 0 });
+        db.addKillFeed(data.killerId, data.victimId, false);
+
+        if (data.victimId === db.myId) {
+          playSound("death");
+          db.setLocalState({ isScoped: false });
+        }
+      },
+    );
+
+    socket.on("playerRespawned", (data: { id: string; player: any }) => {
       useGameStore.getState().updatePlayer(data.id, data.player);
       if (data.id === useGameStore.getState().myId) {
-        useGameStore.getState().setLocalState({ 
-            health: 100, 
-            ammo: 5,
-            teleportTo: [data.player.x, data.player.y, data.player.z]
+        useGameStore.getState().setLocalState({
+          health: 100,
+          ammo: 5,
+          teleportTo: [data.player.x, data.player.y, data.player.z],
         });
       }
     });
 
-    socket.on('playerLeft', (id: string) => {
+    socket.on("playerLeft", (id: string) => {
       useGameStore.getState().removePlayer(id);
     });
 
-    socket.on('disconnect', () => {
+    socket.on("disconnect", () => {
       setConnected(false);
     });
 
     return () => {
-      socket.off('connect');
-      socket.off('gameFull');
-      socket.off('gameState');
-      socket.off('init');
-      socket.off('playerJoined');
-      socket.off('matchStarted');
-      socket.off('matchEnded');
-      socket.off('timeUpdate');
-      socket.off('playerMoved');
-      socket.off('playerShoot');
-      socket.off('playerHit');
-      socket.off('playerDied');
-      socket.off('playerRespawned');
-      socket.off('playerLeft');
-      socket.off('disconnect');
+      socket.off("connect");
+      socket.off("gameFull");
+      socket.off("gameState");
+      socket.off("init");
+      socket.off("playerJoined");
+      socket.off("matchStarted");
+      socket.off("matchEnded");
+      socket.off("timeUpdate");
+      socket.off("playerMoved");
+      socket.off("playerShoot");
+      socket.off("playerHit");
+      socket.off("playerDied");
+      socket.off("playerRespawned");
+      socket.off("playerLeft");
+      socket.off("disconnect");
       socket.disconnect();
     };
   }, [inMenu]);
@@ -646,16 +1138,20 @@ export default function App() {
       const state = useGameStore.getState();
       const now = Date.now();
       let updates: any = {};
-      
-      if (state.hitmarkers.some(h => now - h.createdAt > 200)) {
-        updates.hitmarkers = state.hitmarkers.filter(h => now - h.createdAt <= 200);
+
+      if (state.hitmarkers.some((h) => now - h.createdAt > 200)) {
+        updates.hitmarkers = state.hitmarkers.filter(
+          (h) => now - h.createdAt <= 200,
+        );
       }
-      
+
       const BULLET_LIFETIME = 2000;
-      if (state.bullets.some(b => now - b.createdAt > BULLET_LIFETIME)) {
-        updates.bullets = state.bullets.filter(b => now - b.createdAt <= BULLET_LIFETIME);
+      if (state.bullets.some((b) => now - b.createdAt > BULLET_LIFETIME)) {
+        updates.bullets = state.bullets.filter(
+          (b) => now - b.createdAt <= BULLET_LIFETIME,
+        );
       }
-      
+
       if (Object.keys(updates).length > 0) {
         state.setLocalState(updates);
       }
@@ -666,7 +1162,9 @@ export default function App() {
   if (gameFull) {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-900 text-white font-sans">
-        <h1 className="text-3xl font-bold text-red-500">Game is already full (Max 2 Players).</h1>
+        <h1 className="text-3xl font-bold text-red-500">
+          Game is already full (Max 2 Players).
+        </h1>
       </div>
     );
   }
@@ -684,22 +1182,22 @@ export default function App() {
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-black">
       <GameScene />
-      
+
       {inMenu && (
         <div className="absolute inset-0 z-50">
-          <MainMenu 
+          <MainMenu
             playerName={globalName}
             onPlay={(options) => {
               if (options) {
                 setCustomPlayOptions(options);
               } else {
                 setCustomPlayOptions({
-                  name: 'Player_' + Math.floor(Math.random() * 9000 + 1000),
-                  roomCode: 'QUICK'
+                  name: "Player_" + Math.floor(Math.random() * 9000 + 1000),
+                  roomCode: "QUICK",
                 });
               }
               setInMenu(false);
-            }} 
+            }}
           />
         </div>
       )}
@@ -710,7 +1208,9 @@ export default function App() {
         <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-gray-900 text-white font-sans gap-8">
           <div className="text-center animate-pulse">
             <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <h1 className="text-xl font-bold tracking-widest text-blue-400">CONNECTING TO SERVER...</h1>
+            <h1 className="text-xl font-bold tracking-widest text-blue-400">
+              CONNECTING TO SERVER...
+            </h1>
           </div>
           <button
             onClick={() => {
@@ -725,7 +1225,9 @@ export default function App() {
         </div>
       )}
 
-      <div className="hidden lg:block absolute bottom-2 left-2 text-[10px] text-gray-600 z-50 mix-blend-difference pointer-events-none">Desktop Recommended</div>
+      <div className="hidden lg:block absolute bottom-2 left-2 text-[10px] text-gray-600 z-50 mix-blend-difference pointer-events-none">
+        Desktop Recommended
+      </div>
     </div>
   );
 }
