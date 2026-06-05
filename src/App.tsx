@@ -199,7 +199,7 @@ const SettingsMenu = ({ onQuit }: { onQuit: () => void }) => {
   );
 };
 
-const UIOverlay = ({ onQuit }: { onQuit: () => void }) => {
+const UIOverlay = ({ onQuit, roomCode, playerName }: { onQuit: () => void, roomCode: string, playerName: string }) => {
   const {
     matchState,
     timeRemaining,
@@ -314,19 +314,24 @@ const UIOverlay = ({ onQuit }: { onQuit: () => void }) => {
   }
 
   if (matchState === "ended") {
-    const isWinner = winner === myId;
+    const sortedPlayers = Object.entries(players)
+       .map(([id, p]) => ({ id, ...p }))
+       .sort((a, b) => (b.kills || 0) - (a.kills || 0));
+    const isWinner = sortedPlayers.length > 0 && sortedPlayers[0].id === myId;
+    const myRank = sortedPlayers.findIndex(p => p.id === myId) + 1;
+    
     return (
       <div
-        className={`absolute inset-0 z-50 flex flex-col items-center justify-center text-white font-sans backdrop-blur-md select-none ${isWinner ? "bg-blue-900/80 text-blue-100" : "bg-red-900/80 text-red-100"}`}
+        className={`absolute inset-0 z-50 flex flex-col items-center justify-center text-white font-sans backdrop-blur-md select-none ${isWinner ? "bg-blue-900/80 text-blue-100" : "bg-gray-900/80 text-gray-100"}`}
       >
         <h1 className="text-7xl font-black mb-4 tracking-tighter uppercase">
-          {isWinner ? "VICTORY" : "DEFEAT"}
+          {isWinner ? "VICTORY" : "MATCH ENDED"}
         </h1>
         <p className="text-2xl mb-8">
-          Score: {myPlayerState?.kills} - {opponentState?.kills}
+          You placed #{myRank} with {myPlayerState?.kills || 0} Kills
         </p>
-        <p className="text-lg animate-pulse mb-8">
-          Restarting match shortly...
+        <p className="text-lg mb-8">
+           Winner: {sortedPlayers[0]?.id === myId ? (sortedPlayers[0]?.nickname || playerName) : (sortedPlayers[0]?.nickname || 'Unknown')} ({sortedPlayers[0]?.kills || 0} Kills)
         </p>
 
         <button
@@ -335,7 +340,7 @@ const UIOverlay = ({ onQuit }: { onQuit: () => void }) => {
           }}
           className="bg-red-600 hover:bg-red-500 text-white font-black px-8 py-4 rounded-xl transition-all uppercase tracking-wider text-sm flex items-center gap-2 shadow-[0_0_15px_rgba(220,38,38,0.3)] hover:scale-105 active:scale-95 pointer-events-auto cursor-pointer"
         >
-          <LogOut size={16} /> Quit Game
+          <LogOut size={16} /> Leave Match
         </button>
       </div>
     );
@@ -349,33 +354,32 @@ const UIOverlay = ({ onQuit }: { onQuit: () => void }) => {
       <div className="pointer-events-none absolute inset-0 z-10 flex flex-col justify-between p-6 select-none font-sans">
         {/* Top HUD */}
         <div className="flex justify-between items-start text-white">
-          <div className="bg-black/50 backdrop-blur-md p-4 rounded-xl border border-white/10 flex items-center gap-6">
-            <div className="text-center">
-              <p className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-1">
-                {myPlayerState?.nickname || "YOU"}
-              </p>
-              <p className="text-4xl font-black">{myPlayerState?.kills || 0}</p>
-            </div>
-            {opponentState && (
-              <>
-                <div className="text-3xl font-black text-gray-600">-</div>
-                <div className="text-center">
-                  <p className="text-xs font-bold text-red-400 uppercase tracking-widest mb-1">
-                    {opponentState?.nickname || "ENEMY"}
-                  </p>
-                  <p className="text-4xl font-black">
-                    {opponentState?.kills || 0}
-                  </p>
+          {roomCode !== "TRAINING_GROUND" && (
+            <>
+              <div className="bg-black/50 backdrop-blur-md p-4 rounded-xl border border-white/10 flex flex-col gap-2 min-w-[300px]">
+                <div className="flex justify-between items-center text-xs font-bold text-gray-400 uppercase tracking-widest border-b border-white/10 pb-2 mb-2">
+                  <span>Name</span>
+                  <span>Kills</span>
                 </div>
-              </>
-            )}
-          </div>
+                {Object.entries(players)
+                  .map(([id, p]) => ({ id, ...p }))
+                  .sort((a, b) => (b.kills || 0) - (a.kills || 0))
+                  .map(({ id, nickname, kills }) => (
+                    <div key={id} className={`flex justify-between items-center ${id === myId ? 'text-blue-400 font-black' : 'text-gray-300 font-bold'}`}>
+                      <span className="text-sm truncate pr-4">{id === myId ? (nickname || playerName) : (nickname || 'Player')}</span>
+                      <span className="text-sm bg-white/10 px-3 py-0.5 rounded font-mono">{kills || 0}</span>
+                    </div>
+                  ))
+                }
+              </div>
 
-          <div className="bg-black/50 backdrop-blur-md px-6 py-3 rounded-xl border border-white/10 text-center">
-            <p className="text-2xl font-mono font-bold tracking-widest">
-              {formatTime(timeRemaining)}
-            </p>
-          </div>
+              <div className="bg-black/50 backdrop-blur-md px-6 py-3 rounded-xl border border-white/10 text-center">
+                <p className="text-2xl font-mono font-bold tracking-widest">
+                  {formatTime(timeRemaining)}
+                </p>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Kill Feed */}
@@ -657,211 +661,6 @@ export default function App() {
   } | null>(null);
 
   useEffect(() => {
-    let botInterval: number | null = null;
-    const botState: Record<string, { state: 'idle' | 'patrol' | 'attack' | 'flee', target: {x: number, z: number} | null, lastShoot: number, strafeDir: number, stuckTimer: number, lastPos: {x: number, z: number}, changeTargetAt: number }> = {};
-    
-    if (inMenu || !connected) {
-      if (botInterval) clearInterval(botInterval);
-      return;
-    }
-
-    const roomCode = customPlayOptions?.roomCode || socket.io.opts.query.room;
-    if (roomCode?.startsWith("BOT_")) {
-      const difficulty = roomCode.split("_")[1] || "EASY";
-      let moveSpeed = 0.04;
-      let shootChance = 0.02;
-      let reactionTime = 2000;
-      let accuracyBase = 0.35;
-      
-      if (difficulty === "MEDIUM") { moveSpeed = 0.06; shootChance = 0.04; reactionTime = 900; accuracyBase = 0.6; }
-      if (difficulty === "HARD") { moveSpeed = 0.09; shootChance = 0.08; reactionTime = 300; accuracyBase = 0.85; }
-      if (difficulty === "IMPOSSIBLE") { moveSpeed = 0.12; shootChance = 0.12; reactionTime = 100; accuracyBase = 0.95; }
-
-      botInterval = window.setInterval(() => {
-        const db = useGameStore.getState();
-        const myId = db.myId;
-        const myPlayer = myId ? db.players[myId] : null;
-        const now = Date.now();
-
-        if (!myPlayer || db.matchState !== "playing") return;
-
-        Object.entries(db.players).forEach(([id, bot]) => {
-          if (!id.startsWith("bot_") || bot.health <= 0) return;
-
-          if (!botState[id]) {
-            botState[id] = { state: 'patrol', target: null, lastShoot: 0, strafeDir: Math.random() > 0.5 ? 1 : -1, stuckTimer: 0, lastPos: {x: bot.x, z: bot.z}, changeTargetAt: now };
-          }
-          const bs = botState[id];
-
-          const dx = myPlayer.x - bot.x;
-          const dz = myPlayer.z - bot.z;
-          const dist = Math.sqrt(dx * dx + dz * dz);
-          const hasSight = dist < (difficulty === "EASY" ? 50 : difficulty === "MEDIUM" ? 80 : 120);
-          
-          let newX = bot.x;
-          let newZ = bot.z;
-          let newRy = bot.ry;
-          let isMoving = false;
-
-          // Check if stuck
-          const dLast = Math.sqrt(Math.pow(bot.x - bs.lastPos.x, 2) + Math.pow(bot.z - bs.lastPos.z, 2));
-          if (dLast < 0.1 && bs.state !== 'idle') {
-            bs.stuckTimer += 50;
-            if (bs.stuckTimer > 1000) {
-              bs.target = { x: bot.x + (Math.random() - 0.5) * 40, z: bot.z + (Math.random() - 0.5) * 40 };
-              bs.stuckTimer = 0;
-            }
-          } else {
-            bs.stuckTimer = 0;
-          }
-          bs.lastPos = { x: bot.x, z: bot.z };
-
-          if (hasSight) {
-             bs.state = 'attack';
-          } else if (bs.state === 'attack') {
-             bs.state = 'patrol';
-             bs.target = { x: myPlayer.x, z: myPlayer.z }; // Go to last known pos
-          }
-
-          if (bs.state === 'patrol' || bs.state === 'idle') {
-             if (now > bs.changeTargetAt || !bs.target) {
-                if (Math.random() < (difficulty === "EASY" ? 0.3 : 0.05)) {
-                   bs.state = 'idle';
-                   bs.changeTargetAt = now + 1000 + Math.random() * 2000;
-                } else {
-                   bs.state = 'patrol';
-                   bs.target = { x: (Math.random() - 0.5) * 80, z: (Math.random() - 0.5) * 80 };
-                   bs.changeTargetAt = now + 4000 + Math.random() * 4000;
-                }
-             }
-
-             if (bs.state === 'patrol' && bs.target) {
-                const tdx = bs.target.x - bot.x;
-                const tdz = bs.target.z - bot.z;
-                const tdist = Math.sqrt(tdx * tdx + tdz * tdz);
-                if (tdist > 1) {
-                   newX += (tdx / tdist) * moveSpeed;
-                   newZ += (tdz / tdist) * moveSpeed;
-                   newRy = Math.atan2(-tdx, -tdz);
-                   isMoving = true;
-                } else {
-                   bs.target = null;
-                }
-             }
-          } else if (bs.state === 'attack') {
-             isMoving = true;
-             newRy = Math.atan2(-dx, -dz);
-             
-             if (difficulty === "EASY") {
-                if (dist > 25) {
-                   newX += (dx / dist) * moveSpeed * 0.8;
-                   newZ += (dz / dist) * moveSpeed * 0.8;
-                } else {
-                   if (Math.random() < 0.02) bs.strafeDir *= -1;
-                   if (Math.random() < 0.1) {
-                     isMoving = false; // Stop sometimes
-                   } else {
-                     newX += Math.cos(newRy) * (moveSpeed * 0.5) * bs.strafeDir;
-                     newZ += -Math.sin(newRy) * (moveSpeed * 0.5) * bs.strafeDir;
-                   }
-                }
-             } else if (difficulty === "MEDIUM") {
-                if (dist > 20) {
-                   newX += (dx / dist) * moveSpeed;
-                   newZ += (dz / dist) * moveSpeed;
-                } else {
-                   if (Math.random() < 0.05) bs.strafeDir *= -1;
-                   newX += Math.cos(newRy) * moveSpeed * bs.strafeDir;
-                   newZ += -Math.sin(newRy) * moveSpeed * bs.strafeDir;
-                }
-             } else {
-                // HARD / IMPOSSIBLE
-                if (dist < 15) {
-                   // Flee a bit while looking at player
-                   newX -= (dx / dist) * moveSpeed;
-                   newZ -= (dz / dist) * moveSpeed;
-                   newRy = Math.atan2(-dx, -dz);
-                } else if (dist > 30) {
-                   newX += (dx / dist) * moveSpeed;
-                   newZ += (dz / dist) * moveSpeed;
-                } else {
-                   // Aggressive strafe
-                   if (Math.random() < 0.1) bs.strafeDir *= -1;
-                   newX += Math.cos(newRy) * (moveSpeed * 1.5) * bs.strafeDir;
-                   newZ += -Math.sin(newRy) * (moveSpeed * 1.5) * bs.strafeDir;
-                }
-             }   
-             
-             // Jump randomly
-             // (jump logic is harder to simulate strictly without updating y physics, 
-             // but we can jitter x/z slightly)
-             
-             // Shooting
-             if (myPlayer.health > 0 && now - bs.lastShoot > reactionTime) {
-                if (Math.random() < shootChance) {
-                   bs.lastShoot = now;
-                   
-                   db.addBullet({
-                     id: Math.random().toString(36).substr(2, 9),
-                     position: [bot.x, bot.y + 0.5, bot.z],
-                     direction: [dx / dist, 0, dz / dist],
-                   });
-                   playSound("shoot");
-
-                   setTimeout(() => {
-                      if (Math.random() < accuracyBase) {
-                        const currentStore = useGameStore.getState();
-                        const currentP = currentStore.players[myId];
-                        if (!currentP || currentP.health <= 0) return;
-
-                        const isHeadshot = Math.random() < (difficulty === 'IMPOSSIBLE' ? 0.3 : difficulty === 'HARD' ? 0.2 : 0.05);
-                        const damage = isHeadshot ? 100 : 35;
-                        const newHealth = Math.max(0, currentP.health - damage);
-                        
-                        currentStore.updatePlayer(myId, { health: newHealth });
-                        currentStore.setLocalState({ health: newHealth });
-                        playSound(isHeadshot ? "headshot" : "hit");
-
-                        if (newHealth <= 0 && currentP.health > 0) {
-                            playSound("death");
-                            currentStore.updatePlayer(myId, { deaths: (currentP.deaths || 0) + 1, health: 0 });
-                            currentStore.updatePlayer(id, { kills: (currentStore.players[id]?.kills || 0) + 1 });
-                            currentStore.addKillFeed(id, myId, isHeadshot);
-                            
-                            setTimeout(() => {
-                               const store = useGameStore.getState();
-                               const spawn = getSafeSpawnPosition(10);
-                               store.updatePlayer(myId, { health: 100, x: spawn.x, y: spawn.y, z: spawn.z });
-                               store.setLocalState({
-                                 health: 100,
-                                 ammo: 5,
-                                 isReloading: false,
-                                 isScoped: false,
-                                 teleportTo: [spawn.x, spawn.y, spawn.z]
-                               });
-                            }, 3000);
-                        }
-                      }
-                   }, dist * 5); // Fake travel time
-                }
-             }
-          }
-
-          // Bound the bots to reasonable map size
-          newX = Math.max(-48, Math.min(48, newX));
-          newZ = Math.max(-48, Math.min(48, newZ));
-
-          db.updatePlayer(id, { x: newX, z: newZ, ry: newRy, isMoving });
-        });
-      }, 50);
-    }
-
-    return () => {
-      if (botInterval) clearInterval(botInterval);
-    };
-  }, [inMenu, connected, customPlayOptions]);
-
-  useEffect(() => {
     if (inMenu || !globalName) return;
 
     const { settings } = useGameStore.getState();
@@ -944,9 +743,13 @@ export default function App() {
       const currentRoom = customPlayOptions?.roomCode || socket.io.opts.query.room || "QUICK";
 
       if (currentRoom === "TRAINING_GROUND") {
-        for (let i = 0; i < 20; i++) {
+        for (let i = 0; i < 10; i++) {
           const tId = `target_${i}`;
-          const spawnPos = getSafeSpawnPosition(0.8);
+          const spawnPos = {
+             x: (Math.random() - 0.5) * 80,
+             y: 0.8,
+             z: (Math.random() - 0.5) * 80
+          };
           useGameStore.getState().updatePlayer(tId, {
             nickname: `Target ${i + 1}`,
             x: spawnPos.x,
@@ -960,28 +763,6 @@ export default function App() {
             isJumping: false,
             outfitColor: "#ff0000",
             eyeColor: "#000000",
-          });
-        }
-      } else if (currentRoom.startsWith("BOT_")) {
-        const parts = currentRoom.split('_');
-        const count = parseInt(parts[2]) || 5;
-        for (let i = 0; i < count; i++) {
-          const tId = `bot_${i}`;
-          const spawnPos = getSafeSpawnPosition(1.05);
-          useGameStore.getState().updatePlayer(tId, {
-            nickname: `Bot ${i + 1}`,
-            x: spawnPos.x,
-            y: spawnPos.y,
-            z: spawnPos.z,
-            rx: 0,
-            ry: Math.random() * Math.PI * 2,
-            health: 100,
-            isTarget: false,
-            isBot: true,
-            isMoving: false,
-            isJumping: false,
-            outfitColor: "#2b6cb0",
-            eyeColor: "#ff0000",
           });
         }
       }
@@ -1040,7 +821,7 @@ export default function App() {
           playSound("hit"); // we got hit
           useGameStore.getState().setLocalState({ health: newHealth });
         } else if (
-          (data.id.startsWith("target_") || data.id.startsWith("bot_")) &&
+          data.id.startsWith("target_") &&
           currentHealth > 0 &&
           newHealth === 0
         ) {
@@ -1057,10 +838,13 @@ export default function App() {
 
             // Respawn dummy after delay
             setTimeout(() => {
-              const yPos = data.id.startsWith("target_") ? 0.8 : 1.05;
-              const spawnPos = getSafeSpawnPosition(yPos);
+              const spawnPos = {
+                 x: (Math.random() - 0.5) * 80,
+                 y: 0.8,
+                 z: (Math.random() - 0.5) * 80
+              };
               useGameStore.getState().updatePlayer(data.id, {
-                health: data.id.startsWith("bot_") ? 100 : 1,
+                health: 1,
                 x: spawnPos.x,
                 y: spawnPos.y,
                 z: spawnPos.z,
@@ -1189,10 +973,10 @@ export default function App() {
             playerName={globalName}
             onPlay={(options) => {
               if (options) {
-                setCustomPlayOptions(options);
+                setCustomPlayOptions({ ...options, name: options.name || globalName });
               } else {
                 setCustomPlayOptions({
-                  name: "Player_" + Math.floor(Math.random() * 9000 + 1000),
+                  name: globalName,
                   roomCode: "QUICK",
                 });
               }
@@ -1202,7 +986,7 @@ export default function App() {
         </div>
       )}
 
-      {!inMenu && connected && <UIOverlay onQuit={handleQuit} />}
+      {!inMenu && connected && <UIOverlay onQuit={handleQuit} roomCode={customPlayOptions?.roomCode || "QUICK"} playerName={globalName!} />}
 
       {!inMenu && !connected && (
         <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-gray-900 text-white font-sans gap-8">

@@ -51,7 +51,7 @@ const StaticTarget = ({ position, rotation }: { position: [number, number, numbe
 // Visual reconstruction of the gameplay map (Arena.tsx) without physics dependencies
 const GameplayMap = () => {
   const group = useRef<THREE.Group>(null);
-  const { scene, animations } = useGLTF(`${import.meta.env.BASE_URL}arenamap.v.2.0.glb`);
+  const { scene, animations } = useGLTF(`${import.meta.env.BASE_URL}arenamap.v.2.1.glb`);
   const padTex = React.useMemo(() => createJumpPadTexture(), []);
   
   const clonedScene = React.useMemo(() => {
@@ -185,7 +185,7 @@ const MenuBackground = () => {
 };
 
 const menuItems = [
-  { id: 'play', label: 'PLAY', icon: Play, subMenus: ['Quick Match', 'Ranked', 'Custom Match', 'Bots'] },
+  { id: 'play', label: 'PLAY', icon: Play, subMenus: ['Quick Match', 'Ranked', 'Custom Match'] },
   { id: 'training', label: 'TRAINING', icon: CircleDot, subMenus: ['Training Ground'] },
   { id: 'settings', label: 'SETTINGS', icon: Settings, subMenus: ['Audio', 'Mouse & Keyboard'] },
 ];
@@ -513,10 +513,7 @@ export const MainMenu = ({ onPlay, playerName }: { onPlay: (options?: { name?: s
                              if (sub === 'Custom Match') {
                                setShowCustomPopup(true);
                                setPopupMode('selection');
-                             } else if (sub === 'Bots') {
-                               setShowCustomPopup(true);
-                               setPopupMode('bot_difficulty');
-                             } else if (sub === 'Quick Match' || sub === 'Bots') {
+                             } else if (sub === 'Quick Match') {
                                onPlay();
                              }
                            }}
@@ -790,38 +787,6 @@ export const MainMenu = ({ onPlay, playerName }: { onPlay: (options?: { name?: s
               <h2 className="text-3xl font-black italic tracking-widest text-blue-400 uppercase mb-8">Custom Match</h2>
 
               <div className="space-y-6">
-                {popupMode === 'bot_difficulty' && (
-                  <div className="space-y-6">
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center">
-                        <label className="text-sm font-bold text-gray-300 uppercase tracking-widest">Number of Bots</label>
-                        <span className="text-blue-400 font-mono font-bold bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">{botCount}</span>
-                      </div>
-                      <input 
-                        type="range" min="1" max="20" step="1" 
-                        value={botCount} 
-                        onChange={(e) => setBotCount(parseInt(e.target.value))}
-                        className="w-full h-1.5 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                      />
-                    </div>
-                    
-                    <div>
-                      <h3 className="text-center font-bold text-gray-300 uppercase tracking-widest mb-4">Select Difficulty</h3>
-                      <div className="space-y-2">
-                        {['Easy', 'Medium', 'Hard'].map((diff) => (
-                          <button 
-                            key={diff}
-                            onClick={() => onPlay({ name: customName, roomCode: `BOT_${diff.toUpperCase()}_${botCount}` })}
-                            className="w-full bg-white/5 hover:bg-blue-600/30 border border-white/10 hover:border-blue-500/50 text-white font-black py-4 rounded-xl transition-all uppercase flex items-center justify-center"
-                          >
-                            {diff}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
                 {popupMode === 'selection' && (
                   <div className="grid grid-cols-1 gap-4">
                     <button 

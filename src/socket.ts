@@ -1,5 +1,5 @@
 import { db } from './firebase';
-import { doc, getDoc, setDoc, onSnapshot, collection, addDoc, query, where, orderBy, limit, deleteDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, getDocs, setDoc, onSnapshot, collection, addDoc, query, where, orderBy, limit, deleteDoc, updateDoc, increment } from 'firebase/firestore';
 
 const SAFE_SPAWNS = [
   { x: -15, z: -15 }, { x: 15, z: 15 },
@@ -20,6 +20,7 @@ class FakeSocket {
   private currentRoom: string = '';
   private unsubPlayers: Function | null = null;
   private unsubEvents: Function | null = null;
+  private timeRemainingInterval: number | null = null;
   
   private lastMoveTime = 0;
   
@@ -72,7 +73,7 @@ class FakeSocket {
         shooterId: this.id,
         victimId: data.id,
         headshot: data.headshot,
-        damage: data.headshot ? 100 : 34,
+        damage: 100,
         x: 0, y: 0, z: 0, dx: 0, dy: 0, dz: 0,
         createdAt: Date.now()
       }).catch(console.error);
@@ -86,19 +87,69 @@ class FakeSocket {
       }
       this.connected = true;
       
-      const roomId = this.io.opts.query.room || 'QUICK';
-      this.currentRoom = roomId;
+      let roomId = this.io.opts.query.room;
+      let roomRef;
+      let matchEndTime = Date.now() + 5 * 60 * 1000;
       
-      // Ensure room exists
-      const roomRef = doc(db, 'rooms', roomId);
-      const roomSnap = await getDoc(roomRef);
-      if (!roomSnap.exists()) {
-        await setDoc(roomRef, {
-          roomCode: roomId,
-          state: 'playing',
-          timeRemaining: 300,
-          createdAt: Date.now()
-        });
+      if (!roomId) {
+        // Quick Match
+        const openRoomsQuery = query(
+          collection(db, 'rooms'),
+          where('state', '==', 'playing'),
+          where('type', '==', 'QUICK'),
+          orderBy('createdAt', 'desc'),
+          limit(10)
+        );
+        const snapshot = await getDocs(openRoomsQuery);
+        let foundOpenRoom = null;
+        for (const docSnap of snapshot.docs) {
+           const playerCount = docSnap.data().playerCount || 0;
+           if (playerCount < 8) {
+               foundOpenRoom = docSnap.id;
+               matchEndTime = docSnap.data().matchEndTime || matchEndTime;
+               break;
+           }
+        }
+        
+        if (foundOpenRoom) {
+            roomId = foundOpenRoom;
+            roomRef = doc(db, 'rooms', roomId);
+        } else {
+            roomId = `QUICK_${Math.random().toString(36).substring(2,8)}`;
+            roomRef = doc(db, 'rooms', roomId);
+            await setDoc(roomRef, {
+              roomCode: roomId,
+              type: 'QUICK',
+              state: 'playing',
+              playerCount: 0,
+              matchEndTime: matchEndTime,
+              createdAt: Date.now()
+            });
+        }
+      } else {
+        // Custom Room
+        roomRef = doc(db, 'rooms', roomId);
+        const roomSnap = await getDoc(roomRef);
+        if (!roomSnap.exists()) {
+          await setDoc(roomRef, {
+            roomCode: roomId,
+            type: 'CUSTOM',
+            state: 'playing',
+            playerCount: 0,
+            matchEndTime: matchEndTime,
+            createdAt: Date.now()
+          });
+        } else {
+          matchEndTime = roomSnap.data().matchEndTime || matchEndTime;
+        }
+      }
+      this.currentRoom = roomId;
+
+      // Increment player count
+      try {
+        await updateDoc(roomRef, { playerCount: increment(1) });
+      } catch (e) {
+        await setDoc(roomRef, { playerCount: increment(1) }, { merge: true });
       }
       
       // Add self to players
@@ -118,13 +169,25 @@ class FakeSocket {
       this.trigger('connect');
       
       // Init payload
+      const initialRemaining = Math.max(0, Math.floor((matchEndTime - Date.now()) / 1000));
       this.trigger('init', {
         id: this.id,
         matchState: 'playing',
-        timeRemaining: 300,
+        timeRemaining: initialRemaining,
         players: {}
       });
       this.trigger('matchStarted', { players: { [this.id]: { x: spawn.x, y: 10, z: spawn.z } } });
+
+      if (this.timeRemainingInterval) clearInterval(this.timeRemainingInterval);
+      this.timeRemainingInterval = window.setInterval(() => {
+        const remaining = Math.max(0, Math.floor((matchEndTime - Date.now()) / 1000));
+        import('./store/gameStore').then(({ useGameStore }) => {
+          useGameStore.getState().updateGameState({ timeRemaining: remaining });
+          if (remaining <= 0) {
+             useGameStore.getState().updateGameState({ matchState: 'ended' });
+          }
+        });
+      }, 1000);
       
       // Listen to players
       const playersCol = collection(db, 'rooms', roomId, 'players');
@@ -276,10 +339,14 @@ class FakeSocket {
   disconnect() {
     this.connected = false;
     if (this.cleanupInterval) clearInterval(this.cleanupInterval);
+    if (this.timeRemainingInterval) clearInterval(this.timeRemainingInterval);
     if (this.unsubPlayers) this.unsubPlayers();
     if (this.unsubEvents) this.unsubEvents();
     if (this.id && this.currentRoom) {
       deleteDoc(doc(db, 'rooms', this.currentRoom, 'players', this.id)).catch(e => {});
+      updateDoc(doc(db, 'rooms', this.currentRoom), {
+        playerCount: increment(-1)
+      }).catch(e => {});
     }
     this.trigger('disconnect');
   }
