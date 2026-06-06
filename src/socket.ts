@@ -1,5 +1,5 @@
 import { db } from './firebase';
-import { doc, getDoc, getDocs, setDoc, onSnapshot, collection, addDoc, query, where, orderBy, limit, deleteDoc, updateDoc, increment } from 'firebase/firestore';
+    import { doc, getDoc, getDocs, setDoc, onSnapshot, collection, addDoc, query, where, orderBy, limit, deleteDoc, updateDoc, increment } from 'firebase/firestore';
 
 const SAFE_SPAWNS = [
   { x: -15, z: -15 }, { x: 15, z: 15 },
@@ -20,7 +20,9 @@ class FakeSocket {
   private currentRoom: string = '';
   private unsubPlayers: Function | null = null;
   private unsubEvents: Function | null = null;
+  private unsubRoom: Function | null = null;
   private timeRemainingInterval: number | null = null;
+  private isHost: boolean = false;
   
   private lastMoveTime = 0;
   
@@ -115,6 +117,7 @@ class FakeSocket {
             roomId = foundOpenRoom;
             roomRef = doc(db, 'rooms', roomId);
         } else {
+            this.isHost = true;
             roomId = `QUICK_${Math.random().toString(36).substring(2,8)}`;
             roomRef = doc(db, 'rooms', roomId);
             await setDoc(roomRef, {
@@ -122,6 +125,7 @@ class FakeSocket {
               type: 'QUICK',
               state: 'playing',
               playerCount: 0,
+              timeRemaining: 300,
               matchEndTime: matchEndTime,
               createdAt: Date.now()
             });
@@ -131,11 +135,13 @@ class FakeSocket {
         roomRef = doc(db, 'rooms', roomId);
         const roomSnap = await getDoc(roomRef);
         if (!roomSnap.exists()) {
+          this.isHost = true;
           await setDoc(roomRef, {
             roomCode: roomId,
             type: 'CUSTOM',
             state: 'playing',
             playerCount: 0,
+            timeRemaining: 300,
             matchEndTime: matchEndTime,
             createdAt: Date.now()
           });
@@ -171,7 +177,11 @@ class FakeSocket {
       this.trigger('connect');
       
       // Init payload
-      const initialRemaining = Math.max(0, Math.floor((matchEndTime - Date.now()) / 1000));
+      const snapForInitial = await getDoc(roomRef);
+      const initialRemaining = snapForInitial.exists() && snapForInitial.data().timeRemaining !== undefined 
+          ? snapForInitial.data().timeRemaining 
+          : Math.max(0, Math.floor((matchEndTime - Date.now()) / 1000));
+          
       this.trigger('init', {
         id: this.id,
         matchState: 'playing',
@@ -180,12 +190,29 @@ class FakeSocket {
       });
       this.trigger('matchStarted', { players: { [this.id]: myPlayerState } });
 
+      let localTimeRemaining = initialRemaining;
+      
+      this.unsubRoom = onSnapshot(roomRef, (snap) => {
+          if (snap.exists()) {
+             const data = snap.data();
+             if (data.timeRemaining !== undefined && !this.isHost) {
+                 localTimeRemaining = data.timeRemaining;
+             }
+          }
+      });
+
       if (this.timeRemainingInterval) clearInterval(this.timeRemainingInterval);
       this.timeRemainingInterval = window.setInterval(() => {
-        const remaining = Math.max(0, Math.floor((matchEndTime - Date.now()) / 1000));
+        localTimeRemaining = Math.max(0, localTimeRemaining - 1);
+        
+        // Host syncs time to database occasionally
+        if (this.isHost && localTimeRemaining % 5 === 0 && this.currentRoom) {
+            updateDoc(doc(db, 'rooms', this.currentRoom), { timeRemaining: localTimeRemaining }).catch(()=> {});
+        }
+
         import('./store/gameStore').then(({ useGameStore }) => {
-          useGameStore.getState().updateGameState({ timeRemaining: remaining });
-          if (remaining <= 0) {
+          useGameStore.getState().updateGameState({ timeRemaining: localTimeRemaining });
+          if (localTimeRemaining <= 0) {
              useGameStore.getState().updateGameState({ matchState: 'ended' });
           }
         });
@@ -198,13 +225,13 @@ class FakeSocket {
           const docId = change.doc.id;
           const data = change.doc.data();
           if (change.type === 'added') {
-            if (data.lastUpdate && Date.now() - data.lastUpdate > 10000) {
+            if (data.lastUpdate && Date.now() - data.lastUpdate > 60000) {
               if (docId !== this.id) deleteDoc(doc(db, 'rooms', roomId, 'players', docId)).catch(() => {});
             } else {
               if (docId !== this.id) this.trigger('playerJoined', { id: docId, player: data });
             }
           } else if (change.type === 'modified') {
-            if (data.lastUpdate && Date.now() - data.lastUpdate > 10000) {
+            if (data.lastUpdate && Date.now() - data.lastUpdate > 60000) {
               if (docId !== this.id) deleteDoc(doc(db, 'rooms', roomId, 'players', docId)).catch(() => {});
             } else {
               if (docId !== this.id) this.trigger('playerMoved', { id: docId, player: data });
@@ -301,7 +328,15 @@ class FakeSocket {
                          const spawn = getRandomSpawn();
                          const safeX = spawn.x;
                          const safeZ = spawn.z;
+                         
+                         const baseState = {
+                             outfitColor: this.io.opts.query.outfitColor || '#3182ce',
+                             eyeColor: this.io.opts.query.eyeColor || '#1a202c',
+                             nickname: this.io.opts.query.name || 'Player'
+                         };
+                         
                          setDoc(doc(db, 'rooms', this.currentRoom, 'players', this.id), {
+                             ...baseState,
                              health: 100,
                              x: safeX, y: 5, z: safeZ,
                              lastUpdate: Date.now()
@@ -309,7 +344,7 @@ class FakeSocket {
                          
                          this.trigger('playerRespawned', {
                              id: this.id,
-                             player: { ...store.players[this.id], health: 100, x: safeX, y: 5, z: safeZ }
+                             player: { ...store.players[this.id], ...baseState, health: 100, x: safeX, y: 5, z: safeZ }
                          });
                      }, 3000);
                  }
@@ -325,7 +360,7 @@ class FakeSocket {
           const store = useGameStore.getState();
           const now = Date.now();
           for (const [id, player] of Object.entries(store.players)) {
-            if (id !== this.id && player.lastUpdate && now - player.lastUpdate > 10000) {
+            if (id !== this.id && player.lastUpdate && now - player.lastUpdate > 60000) {
               this.trigger('playerLeft', id);
               deleteDoc(doc(db, 'rooms', this.currentRoom, 'players', id)).catch(() => {});
             }

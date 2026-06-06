@@ -691,14 +691,14 @@ export default function App() {
     if (customPlayOptions) {
       socket.io.opts.query = {
         name: globalName,
-        room: customPlayOptions.roomCode || "QUICK",
+        room: customPlayOptions.roomCode || "",
         outfitColor: settings.outfitColor,
         eyeColor: settings.eyeColor,
       };
     } else {
       socket.io.opts.query = {
         name: globalName,
-        room: "QUICK",
+        room: "",
         outfitColor: settings.outfitColor,
         eyeColor: settings.eyeColor,
       };
