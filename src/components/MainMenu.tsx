@@ -298,16 +298,15 @@ export const MainMenu = ({ onPlay, playerName }: { onPlay: (options?: { name?: s
           <span className="text-lg font-black text-white uppercase tracking-wider leading-none shadow-black drop-shadow-md">{playerName || 'UNKNOWN'}</span>
         </div>
         <div className="w-12 h-12 rounded-lg bg-blue-900/40 border-2 border-blue-500/30 flex items-center justify-center relative shadow-[inset_0_0_15px_rgba(59,130,246,0.2)] overflow-hidden">
-          <Canvas camera={{ position: [0, 1, 2], fov: 30 }}>
+          <Canvas className="w-full h-full pointer-events-none" camera={{ position: [0, 1.4, 2.5], fov: 30 }}>
             <Suspense fallback={null}>
               <ambientLight intensity={1.2} />
               <directionalLight position={[2, 2, 2]} intensity={1} />
-              <group position={[0, -0.8, 0]} rotation={[0, Math.PI, 0]}>
+              <group position={[0, -0.3, 0]} rotation={[0, Math.PI, 0]}>
                 <UploadedCharacter 
-                  playerState={null} 
-                  position={[0, -0.6, 0]}
-                  outfitColor={settings.outfitColor}
-                  eyeColor={settings.eyeColor}
+                  outfitColor={settings.outfitColor || '#3182ce'}
+                  eyeColor={settings.eyeColor || '#1a202c'}
+                  hasWeapon={false}
                 />
               </group>
             </Suspense>
@@ -353,10 +352,9 @@ export const MainMenu = ({ onPlay, playerName }: { onPlay: (options?: { name?: s
                       <CustomizationCamera focusedPart={focusedPart} controlsRef={controlsRef} />
                       <group rotation={[0, Math.PI, 0]}>
                         <UploadedCharacter 
-                            playerState={null} 
-                            position={[0, -0.6, 0]}
-                            outfitColor={settings.outfitColor}
-                            eyeColor={settings.eyeColor}
+                            outfitColor={settings.outfitColor || '#3182ce'}
+                            eyeColor={settings.eyeColor || '#1a202c'}
+                            hasWeapon={true}
                         />
                       </group>
                       <Environment preset="city" />

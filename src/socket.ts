@@ -155,7 +155,7 @@ class FakeSocket {
       // Add self to players
       const playerRef = doc(db, 'rooms', roomId, 'players', this.id);
       const spawn = getRandomSpawn();
-      await setDoc(playerRef, {
+      const myPlayerState = {
         x: spawn.x, y: 10, z: spawn.z,
         rx: 0, ry: 0,
         isMoving: false, isSprinting: false, isCrouching: false, isJumping: false,
@@ -164,7 +164,9 @@ class FakeSocket {
         eyeColor: this.io.opts.query.eyeColor || '#1a202c',
         nickname: this.io.opts.query.name || 'Player',
         lastUpdate: Date.now()
-      });
+      };
+      
+      await setDoc(playerRef, myPlayerState);
       
       this.trigger('connect');
       
@@ -176,7 +178,7 @@ class FakeSocket {
         timeRemaining: initialRemaining,
         players: {}
       });
-      this.trigger('matchStarted', { players: { [this.id]: { x: spawn.x, y: 10, z: spawn.z } } });
+      this.trigger('matchStarted', { players: { [this.id]: myPlayerState } });
 
       if (this.timeRemainingInterval) clearInterval(this.timeRemainingInterval);
       this.timeRemainingInterval = window.setInterval(() => {

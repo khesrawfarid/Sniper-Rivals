@@ -1,9 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, Suspense } from "react";
+import { Canvas } from "@react-three/fiber";
 import { socket } from "./socket";
 import { getRandomSpawn } from "./socket";
 import { useGameStore } from "./store/gameStore";
 import { GameScene } from "./components/GameScene";
 import { MainMenu } from "./components/MainMenu";
+import { UploadedCharacter } from "./components/Opponent";
 import { playSound } from "./utils/audio";
 import { LogOut } from "lucide-react";
 
@@ -199,6 +201,22 @@ const SettingsMenu = ({ onQuit }: { onQuit: () => void }) => {
   );
 };
 
+const PlayerAvatar = ({ outfitColor, eyeColor }: { outfitColor: string, eyeColor: string }) => (
+  <Canvas className="w-full h-full pointer-events-none" camera={{ position: [0, 1.4, 2.5], fov: 30 }}>
+    <Suspense fallback={null}>
+      <ambientLight intensity={1.2} />
+      <directionalLight position={[2, 2, 2]} intensity={1} />
+      <group position={[0, -0.3, 0]} rotation={[0, Math.PI, 0]}>
+        <UploadedCharacter 
+          outfitColor={outfitColor || '#3182ce'}
+          eyeColor={eyeColor || '#1a202c'}
+          hasWeapon={false}
+        />
+      </group>
+    </Suspense>
+  </Canvas>
+);
+
 const UIOverlay = ({ onQuit, roomCode, playerName }: { onQuit: () => void, roomCode: string, playerName: string }) => {
   const {
     matchState,
@@ -353,30 +371,35 @@ const UIOverlay = ({ onQuit, roomCode, playerName }: { onQuit: () => void, roomC
 
       <div className="pointer-events-none absolute inset-0 z-10 flex flex-col justify-between p-6 select-none font-sans">
         {/* Top HUD */}
-        <div className="flex justify-between items-start text-white">
+        <div className="flex w-full justify-between items-start text-white relative">
           {roomCode !== "TRAINING_GROUND" && (
             <>
-              <div className="bg-black/50 backdrop-blur-md p-4 rounded-xl border border-white/10 flex flex-col gap-2 min-w-[300px]">
-                <div className="flex justify-between items-center text-xs font-bold text-gray-400 uppercase tracking-widest border-b border-white/10 pb-2 mb-2">
-                  <span>Name</span>
-                  <span>Kills</span>
-                </div>
+              <div className="flex-1 flex justify-center items-start flex-wrap gap-4 sm:gap-6 px-4">
                 {Object.entries(players)
                   .map(([id, p]) => ({ id, ...p }))
                   .sort((a, b) => (b.kills || 0) - (a.kills || 0))
-                  .map(({ id, nickname, kills }) => (
-                    <div key={id} className={`flex justify-between items-center ${id === myId ? 'text-blue-400 font-black' : 'text-gray-300 font-bold'}`}>
-                      <span className="text-sm truncate pr-4">{id === myId ? (nickname || playerName) : (nickname || 'Player')}</span>
-                      <span className="text-sm bg-white/10 px-3 py-0.5 rounded font-mono">{kills || 0}</span>
+                  .map(({ id, nickname, kills, outfitColor, eyeColor }) => (
+                    <div key={id} className={`flex flex-col items-center gap-1.5 transition-all ${id === myId ? 'scale-110' : 'opacity-80'}`}>
+                      <span className={`text-[10px] font-black uppercase tracking-widest truncate max-w-[80px] ${id === myId ? 'text-blue-400 drop-shadow-[0_0_5px_rgba(59,130,246,0.5)]' : 'text-gray-400'}`}>
+                        {id === myId ? (nickname || playerName) : (nickname || 'Player')}
+                      </span>
+                      <div className={`w-12 h-12 sm:w-14 sm:h-14 bg-black/60 backdrop-blur-md rounded-xl border flex items-center justify-center shadow-lg overflow-hidden ${id === myId ? 'border-blue-500/50 shadow-[0_0_15px_rgba(37,99,235,0.3)]' : 'border-white/10'}`}>
+                        <PlayerAvatar outfitColor={outfitColor as string} eyeColor={eyeColor as string} />
+                      </div>
+                      <span className={`text-sm font-black font-mono text-white bg-black/60 px-3 py-1 rounded-lg border border-white/10 min-w-[40px] text-center shadow-lg ${id === myId ? 'border-blue-500/30 text-blue-100' : ''}`}>
+                        {kills || 0}
+                      </span>
                     </div>
                   ))
                 }
               </div>
 
-              <div className="bg-black/50 backdrop-blur-md px-6 py-3 rounded-xl border border-white/10 text-center">
-                <p className="text-2xl font-mono font-bold tracking-widest">
-                  {formatTime(timeRemaining)}
-                </p>
+              <div className="absolute right-0 top-0">
+                <div className="bg-black/50 backdrop-blur-md px-4 py-2 sm:px-6 sm:py-3 rounded-xl border border-white/10 text-center shadow-lg">
+                  <p className="text-xl sm:text-2xl font-mono font-bold tracking-widest">
+                    {formatTime(timeRemaining)}
+                  </p>
+                </div>
               </div>
             </>
           )}
