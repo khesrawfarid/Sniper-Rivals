@@ -116,7 +116,7 @@ export const useGameStore = create<GameState>((set) => ({
   updatePlayer: (id, data) => set((state) => ({
     players: {
       ...state.players,
-      [id]: { ...(state.players[id] || {}), ...data }
+      [id]: { ...(state.players[id] || {}), ...data, localLastUpdate: Date.now() }
     }
   })),
   removePlayer: (id) => set((state) => {
