@@ -178,14 +178,15 @@ class FakeSocket {
       
       // Init payload
       const snapForInitial = await getDoc(roomRef);
-      const initialRemaining = snapForInitial.exists() && snapForInitial.data().timeRemaining !== undefined 
-          ? snapForInitial.data().timeRemaining 
-          : Math.max(0, Math.floor((matchEndTime - Date.now()) / 1000));
+      if (snapForInitial.exists() && snapForInitial.data().matchEndTime) {
+         matchEndTime = snapForInitial.data().matchEndTime;
+      }
+      const initialRemaining = Math.floor((matchEndTime - Date.now()) / 1000);
           
       this.trigger('init', {
         id: this.id,
         matchState: 'playing',
-        timeRemaining: initialRemaining,
+        timeRemaining: initialRemaining > -10 ? initialRemaining : 0,
         players: {}
       });
       this.trigger('matchStarted', { players: { [this.id]: myPlayerState } });
@@ -193,10 +194,12 @@ class FakeSocket {
       let localTimeRemaining = initialRemaining;
       
       this.unsubRoom = onSnapshot(roomRef, (snap) => {
-          if (snap.exists()) {
+          if (snap.exists() && snap.data().matchEndTime) {
              const data = snap.data();
-             if (data.timeRemaining !== undefined && !this.isHost) {
-                 localTimeRemaining = data.timeRemaining;
+             const updatedMatchEndTime = data.matchEndTime;
+             if (Math.abs(updatedMatchEndTime - matchEndTime) > 2000) {
+                 matchEndTime = updatedMatchEndTime;
+                 localTimeRemaining = Math.floor((matchEndTime - Date.now()) / 1000);
              }
           }
       });
@@ -207,13 +210,14 @@ class FakeSocket {
         
         // Host syncs time to database occasionally
         if (this.isHost && localTimeRemaining > 0 && localTimeRemaining % 5 === 0 && this.currentRoom) {
-            updateDoc(doc(db, 'rooms', this.currentRoom), { timeRemaining: localTimeRemaining }).catch(()=> {});
+            updateDoc(doc(db, 'rooms', this.currentRoom), { timeRemaining: localTimeRemaining, matchEndTime: matchEndTime }).catch(()=> {});
         }
 
         if (localTimeRemaining <= -10) {
            localTimeRemaining = 300;
+           matchEndTime = Date.now() + 300 * 1000;
            if (this.isHost && this.currentRoom) {
-               updateDoc(doc(db, 'rooms', this.currentRoom), { timeRemaining: 300, matchEndTime: Date.now() + 300 * 1000 }).catch(()=> {});
+               updateDoc(doc(db, 'rooms', this.currentRoom), { timeRemaining: 300, matchEndTime: matchEndTime }).catch(()=> {});
            }
            
            const spawn = getRandomSpawn();
