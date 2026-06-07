@@ -207,16 +207,11 @@ class FakeSocket {
       if (this.timeRemainingInterval) clearInterval(this.timeRemainingInterval);
       this.timeRemainingInterval = window.setInterval(() => {
         localTimeRemaining = localTimeRemaining - 1;
-        
-        // Host syncs time to database occasionally
-        if (this.isHost && localTimeRemaining > 0 && localTimeRemaining % 5 === 0 && this.currentRoom) {
-            updateDoc(doc(db, 'rooms', this.currentRoom), { timeRemaining: localTimeRemaining, matchEndTime: matchEndTime }).catch(()=> {});
-        }
 
         if (localTimeRemaining <= -10) {
            localTimeRemaining = 300;
            matchEndTime = Date.now() + 300 * 1000;
-           if (this.isHost && this.currentRoom) {
+           if (this.currentRoom) {
                updateDoc(doc(db, 'rooms', this.currentRoom), { timeRemaining: 300, matchEndTime: matchEndTime }).catch(()=> {});
            }
            
