@@ -30,6 +30,7 @@ interface GameState {
   myId: string | null;
   matchState: 'waiting' | 'playing' | 'ended';
   timeRemaining: number;
+  intermissionTime?: number;
   winner: string | null;
   
   // Local Player State

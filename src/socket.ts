@@ -203,16 +203,37 @@ class FakeSocket {
 
       if (this.timeRemainingInterval) clearInterval(this.timeRemainingInterval);
       this.timeRemainingInterval = window.setInterval(() => {
-        localTimeRemaining = Math.max(0, localTimeRemaining - 1);
+        localTimeRemaining = localTimeRemaining - 1;
         
         // Host syncs time to database occasionally
-        if (this.isHost && localTimeRemaining % 5 === 0 && this.currentRoom) {
+        if (this.isHost && localTimeRemaining > 0 && localTimeRemaining % 5 === 0 && this.currentRoom) {
             updateDoc(doc(db, 'rooms', this.currentRoom), { timeRemaining: localTimeRemaining }).catch(()=> {});
         }
 
+        if (localTimeRemaining <= -10) {
+           localTimeRemaining = 300;
+           if (this.isHost && this.currentRoom) {
+               updateDoc(doc(db, 'rooms', this.currentRoom), { timeRemaining: 300, matchEndTime: Date.now() + 300 * 1000 }).catch(()=> {});
+           }
+           
+           const spawn = getRandomSpawn();
+           setDoc(doc(db, 'rooms', roomId, 'players', this.id), {
+               kills: 0,
+               deaths: 0,
+               health: 100,
+               x: spawn.x, y: spawn.y, z: spawn.z,
+               localLastUpdate: Date.now()
+           }, { merge: true }).catch(() => {});
+
+           import('./store/gameStore').then(({ useGameStore }) => {
+              useGameStore.getState().updateGameState({ matchState: 'playing' });
+              useGameStore.getState().setLocalState({ health: 100, ammo: 5, teleportTo: [spawn.x, spawn.y, spawn.z] });
+           });
+        }
+
         import('./store/gameStore').then(({ useGameStore }) => {
-          useGameStore.getState().updateGameState({ timeRemaining: localTimeRemaining });
-          if (localTimeRemaining <= 0) {
+          useGameStore.getState().updateGameState({ timeRemaining: localTimeRemaining, intermissionTime: localTimeRemaining <= 0 ? 10 + localTimeRemaining : 0 });
+          if (localTimeRemaining <= 0 && localTimeRemaining > -10) {
              useGameStore.getState().updateGameState({ matchState: 'ended' });
           }
         });

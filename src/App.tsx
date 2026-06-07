@@ -221,6 +221,7 @@ const UIOverlay = ({ onQuit, roomCode, playerName }: { onQuit: () => void, roomC
   const {
     matchState,
     timeRemaining,
+    intermissionTime,
     winner,
     myId,
     players,
@@ -239,6 +240,12 @@ const UIOverlay = ({ onQuit, roomCode, playerName }: { onQuit: () => void, roomC
     (id) => id !== myId && !id.startsWith("target_"),
   );
   const opponentState = opponentId ? players[opponentId] : null;
+
+  useEffect(() => {
+    if (matchState === "ended") {
+      document.exitPointerLock();
+    }
+  }, [matchState]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -335,30 +342,69 @@ const UIOverlay = ({ onQuit, roomCode, playerName }: { onQuit: () => void, roomC
     const sortedPlayers = Object.entries(players)
        .map(([id, p]) => ({ id, ...p }))
        .sort((a, b) => (b.kills || 0) - (a.kills || 0));
+    
     const isWinner = sortedPlayers.length > 0 && sortedPlayers[0].id === myId;
-    const myRank = sortedPlayers.findIndex(p => p.id === myId) + 1;
     
     return (
       <div
-        className={`absolute inset-0 z-50 flex flex-col items-center justify-center text-white font-sans backdrop-blur-md select-none ${isWinner ? "bg-blue-900/80 text-blue-100" : "bg-gray-900/80 text-gray-100"}`}
+        className={`absolute inset-0 z-50 flex flex-col items-center justify-center text-white font-sans backdrop-blur-xl select-none ${isWinner ? "bg-blue-900/90 text-blue-100" : "bg-gray-900/90 text-gray-100"}`}
       >
-        <h1 className="text-7xl font-black mb-4 tracking-tighter uppercase">
+        <h1 className="text-6xl font-black mb-12 tracking-widest uppercase drop-shadow-2xl">
           {isWinner ? "VICTORY" : "MATCH ENDED"}
         </h1>
-        <p className="text-2xl mb-8">
-          You placed #{myRank} with {myPlayerState?.kills || 0} Kills
-        </p>
-        <p className="text-lg mb-8">
-           Winner: {sortedPlayers[0]?.id === myId ? (sortedPlayers[0]?.nickname || playerName) : (sortedPlayers[0]?.nickname || 'Unknown')} ({sortedPlayers[0]?.kills || 0} Kills)
-        </p>
+
+        <div className="flex items-end justify-center gap-6 sm:gap-12 mb-16 h-64">
+           {/* SECOND PLACE */}
+           {sortedPlayers.length > 1 ? (
+              <div className="flex flex-col items-center animate-fade-in-up" style={{ animationDelay: '0.4s' }}>
+                  <span className="text-gray-400 font-bold mb-2 uppercase tracking-wide text-sm">2nd</span>
+                  <div className="w-20 h-20 bg-gray-800 border-4 border-gray-600 rounded-2xl flex items-center justify-center shadow-lg mb-4 overflow-hidden relative">
+                    <PlayerAvatar outfitColor={sortedPlayers[1].outfitColor as string} eyeColor={sortedPlayers[1].eyeColor as string} />
+                  </div>
+                  <span className="font-bold text-lg max-w-[120px] truncate">{sortedPlayers[1].id === myId ? playerName : sortedPlayers[1].nickname || 'Player'}</span>
+                  <span className="text-gray-400 font-mono text-sm">{sortedPlayers[1].kills || 0} Kills</span>
+                  <div className="w-24 h-24 bg-gray-800 border-t-4 border-gray-600 rounded-t-xl mt-4 opacity-80" />
+              </div>
+           ) : <div className="w-24" />}
+
+           {/* FIRST PLACE */}
+           {sortedPlayers.length > 0 && (
+              <div className="flex flex-col items-center animate-fade-in-up scale-110 z-10">
+                  <span className="text-yellow-400 font-black mb-2 uppercase tracking-widest drop-shadow-[0_0_10px_rgba(250,204,21,0.8)]">1st</span>
+                  <div className="w-28 h-28 bg-gray-800 border-4 border-yellow-400 rounded-2xl flex items-center justify-center shadow-[0_0_30px_rgba(250,204,21,0.5)] mb-4 overflow-hidden relative">
+                    <PlayerAvatar outfitColor={sortedPlayers[0].outfitColor as string} eyeColor={sortedPlayers[0].eyeColor as string} />
+                  </div>
+                  <span className="font-black text-xl text-yellow-100 max-w-[140px] truncate">{sortedPlayers[0].id === myId ? playerName : sortedPlayers[0].nickname || 'Player'}</span>
+                  <span className="text-yellow-200/80 font-mono font-bold mt-1">{sortedPlayers[0].kills || 0} Kills</span>
+                  <div className="w-32 h-32 bg-yellow-600/20 border-t-4 border-yellow-400 rounded-t-xl mt-4 backdrop-blur-sm" />
+              </div>
+           )}
+
+           {/* THIRD PLACE */}
+           {sortedPlayers.length > 2 ? (
+              <div className="flex flex-col items-center animate-fade-in-up" style={{ animationDelay: '0.8s' }}>
+                  <span className="text-orange-400/80 font-bold mb-2 uppercase tracking-wide text-sm">3rd</span>
+                  <div className="w-20 h-20 bg-gray-800 border-4 border-orange-500/50 rounded-2xl flex items-center justify-center shadow-lg mb-4 overflow-hidden relative">
+                    <PlayerAvatar outfitColor={sortedPlayers[2].outfitColor as string} eyeColor={sortedPlayers[2].eyeColor as string} />
+                  </div>
+                  <span className="font-bold text-lg max-w-[120px] truncate">{sortedPlayers[2].id === myId ? playerName : sortedPlayers[2].nickname || 'Player'}</span>
+                  <span className="text-gray-400 font-mono text-sm">{sortedPlayers[2].kills || 0} Kills</span>
+                  <div className="w-24 h-16 bg-gray-800/80 border-t-4 border-orange-500/50 rounded-t-xl mt-4 opacity-80" />
+              </div>
+           ) : <div className="w-24" />}
+        </div>
+
+        <div className="text-xl text-gray-300 mb-8 font-mono bg-black/40 px-6 py-2 rounded-full border border-white/10 animate-pulse">
+            Next match starting in {intermissionTime}s...
+        </div>
 
         <button
           onClick={() => {
             onQuit();
           }}
-          className="bg-red-600 hover:bg-red-500 text-white font-black px-8 py-4 rounded-xl transition-all uppercase tracking-wider text-sm flex items-center gap-2 shadow-[0_0_15px_rgba(220,38,38,0.3)] hover:scale-105 active:scale-95 pointer-events-auto cursor-pointer"
+          className="bg-red-600 hover:bg-red-500 text-white font-black px-6 py-3 rounded-xl transition-all uppercase tracking-wider text-xs flex items-center gap-2 shadow-lg hover:scale-105 active:scale-95 pointer-events-auto cursor-pointer"
         >
-          <LogOut size={16} /> Leave Match
+          <LogOut size={14} /> Leave Room
         </button>
       </div>
     );
