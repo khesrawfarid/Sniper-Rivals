@@ -162,7 +162,7 @@ export const Player = ({ position = DEFAULT_POSITION }: { position?: [number, nu
           }
 
           if (opponentHit) {
-            const hitId = opponentHit.name.split("-")[1];
+            const hitId = opponentHit.name.substring("opponent-".length);
             const hitPointYLocal = opponentHit.worldToLocal(hit.point.clone()).y;
             const isHeadshot = hitPointYLocal > 0.3;
             

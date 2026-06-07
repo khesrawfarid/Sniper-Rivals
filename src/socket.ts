@@ -225,7 +225,7 @@ class FakeSocket {
           const docId = change.doc.id;
           const data = change.doc.data();
           if (change.type === 'added') {
-            const isStale = data.lastUpdate && (Date.now() - data.lastUpdate > 60000);
+            const isStale = data.lastUpdate && (Date.now() - data.lastUpdate > 10000);
             if (isStale) {
                if (docId !== this.id) deleteDoc(doc(db, 'rooms', roomId, 'players', docId)).catch(() => {});
             } else {
@@ -357,7 +357,7 @@ class FakeSocket {
           const store = useGameStore.getState();
           const now = Date.now();
           for (const [id, player] of Object.entries(store.players)) {
-            if (id !== this.id && player.localLastUpdate && now - player.localLastUpdate > 60000) {
+            if (id !== this.id && player.localLastUpdate && now - player.localLastUpdate > 10000) {
               if (!id.startsWith('target_') && !id.startsWith('bot_')) {
                 this.trigger('playerLeft', id);
                 deleteDoc(doc(db, 'rooms', this.currentRoom, 'players', id)).catch(() => {});
