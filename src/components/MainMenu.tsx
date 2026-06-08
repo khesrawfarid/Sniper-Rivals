@@ -492,7 +492,7 @@ export const MainMenu = ({ onPlay, playerName }: { onPlay: (options?: { name?: s
                   >
                      <div className="relative z-10 flex items-center justify-between">
                        <div className="text-left">
-                         <h3 className="text-4xl font-black italic tracking-wider drop-shadow-lg group-hover:text-blue-200 transition-colors uppercase">PLAY</h3>
+                         <h3 className="text-4xl font-black italic tracking-wider drop-shadow-lg group-hover:text-blue-200 transition-colors uppercase">QUICKPLAY</h3>
                        </div>
                        <div className="w-16 h-16 rounded-full bg-blue-500 flex items-center justify-center shadow-[0_0_20px_white] group-hover:shadow-[0_0_30px_white] transition-shadow">
                          <Play fill="currentColor" size={32} className="text-white ml-2" />
@@ -840,7 +840,7 @@ export const MainMenu = ({ onPlay, playerName }: { onPlay: (options?: { name?: s
                         setIsCheckingRoom(true);
                         setJoinError('');
                         try {
-                          const roomRef = doc(db, 'rooms', roomCode);
+                          const roomRef = doc(db, 'matches', roomCode);
                           const roomSnap = await getDoc(roomRef);
                           if (!roomSnap.exists()) {
                             setJoinError('Lobby not found. Check code.');

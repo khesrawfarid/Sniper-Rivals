@@ -16,7 +16,7 @@ service cloud.firestore {
     }
 
     // Entity Validators based on firebase-blueprint.json
-    function isValidRoom(data) {
+    function isValidMatch(data) {
       return data.keys().hasAll(['roomCode', 'state', 'createdAt']) &&
         data.roomCode is string && data.roomCode.size() <= 10 &&
         data.state is string && data.state.size() <= 10 &&
@@ -44,7 +44,7 @@ service cloud.firestore {
         data.createdAt is number;
     }
 
-    match /rooms/{roomId} {
+    match /matches/{roomId} {
       allow read, write: if true;
       
       match /players/{playerId} {

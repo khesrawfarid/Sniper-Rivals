@@ -41,6 +41,7 @@ interface GameState {
   teleportTo: [number, number, number] | null;
   hitmarkers: Array<{ id: string, headshot: boolean, createdAt: number }>;
   killFeed: Array<{ id: string, killer: string, victim: string, headshot: boolean, createdAt: number }>;
+  ping: number;
 
   // Settings
   settings: GameSettings;
@@ -108,6 +109,7 @@ export const useGameStore = create<GameState>((set) => ({
   teleportTo: null,
   hitmarkers: [],
   killFeed: [],
+  ping: 0,
 
   settings: initialSettings,
   showSettings: false,
@@ -132,11 +134,21 @@ export const useGameStore = create<GameState>((set) => ({
     bullets: state.bullets.filter(b => b.id !== id)
   })),
   setLocalState: (data) => set((state) => ({ ...state, ...data })),
-  addHitmarker: (headshot) => set((state) => ({
-    hitmarkers: [...state.hitmarkers, { id: Math.random().toString(36).substring(7), headshot, createdAt: Date.now() }]
-  })),
+  addHitmarker: (headshot) => set((state) => {
+    const id = Math.random().toString(36).substring(7);
+    setTimeout(() => {
+      useGameStore.setState(s => ({ hitmarkers: s.hitmarkers.filter(h => h.id !== id) }));
+    }, 1500);
+    return {
+      hitmarkers: [...state.hitmarkers, { id, headshot, createdAt: Date.now() }]
+    };
+  }),
   addKillFeed: (killer, victim, headshot) => set((state) => {
-    const newFeed = [...state.killFeed, { id: Math.random().toString(36).substring(7), killer, victim, headshot, createdAt: Date.now() }];
+    const id = Math.random().toString(36).substring(7);
+    setTimeout(() => {
+      useGameStore.setState(s => ({ killFeed: s.killFeed.filter(k => k.id !== id) }));
+    }, 5000);
+    const newFeed = [...state.killFeed, { id, killer, victim, headshot, createdAt: Date.now() }];
     if (newFeed.length > 5) newFeed.shift();
     return { killFeed: newFeed };
   }),

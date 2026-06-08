@@ -441,7 +441,7 @@ export const Player = ({ position = DEFAULT_POSITION }: { position?: [number, nu
     mouseDelta.current.y = THREE.MathUtils.lerp(mouseDelta.current.y, 0, 10 * delta);
 
     // Emit position to server
-    if (now - lastEmitTime.current > 50) {
+    if (now - lastEmitTime.current > 100) {
       if (myId) {
         socket.emit('move', {
           x: newPos.x,

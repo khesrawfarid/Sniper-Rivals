@@ -7,7 +7,7 @@ import { GameScene } from "./components/GameScene";
 import { MainMenu } from "./components/MainMenu";
 import { UploadedCharacter } from "./components/Opponent";
 import { playSound } from "./utils/audio";
-import { LogOut } from "lucide-react";
+import { LogOut, Play } from "lucide-react";
 
 function formatTime(secs: number) {
   const m = Math.floor(secs / 60);
@@ -165,6 +165,62 @@ const SettingsMenu = ({ onQuit }: { onQuit: () => void }) => {
                   className="w-full accent-blue-500"
                 />
               </div>
+
+              <div className="space-y-2 border-t border-white/10 pt-4 mt-4">
+                <h4 className="text-sm font-bold text-gray-500 mb-4 tracking-widest uppercase">Keybinds</h4>
+                {Object.entries(settings.keybinds).map(([action, key]) => (
+                  <div key={action} className="flex flex-col rounded-lg bg-white/5 border border-white/5 hover:border-white/20 transition-all overflow-hidden group">
+                    <div className="flex justify-between items-center p-3">
+                      <span className="text-sm font-medium text-gray-300 uppercase">{action}</span>
+                      <input 
+                        readOnly
+                        value={key === ' ' ? 'SPACE' : key.toUpperCase()}
+                        onKeyDown={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (e.key === 'Escape') return;
+                          const val = e.code === 'Space' ? ' ' : e.key.toLowerCase();
+                          updateSettings({ keybinds: { ...settings.keybinds, [action]: val }});
+                          e.currentTarget.blur();
+                        }}
+                        className="px-4 py-1.5 min-w-[80px] text-center rounded-md bg-black/60 border border-blue-500/30 text-blue-400 font-bold font-mono group-hover:border-blue-500 transition-colors focus:outline-none focus:border-blue-400 focus:bg-blue-900/30 cursor-pointer"
+                      />
+                    </div>
+                    {action === 'crouch' && (
+                      <div className="flex justify-end items-center gap-2 px-3 pb-3">
+                        <button 
+                          onClick={() => updateSettings({ crouchMode: 'hold' })}
+                          className={`px-3 py-1 rounded text-xs font-bold uppercase tracking-widest transition-colors ${settings.crouchMode === 'hold' ? 'bg-blue-600 text-white shadow-[0_0_10px_rgba(37,99,235,0.4)]' : 'bg-black/40 text-gray-500 hover:text-gray-300'}`}
+                        >
+                          Hold
+                        </button>
+                        <button 
+                          onClick={() => updateSettings({ crouchMode: 'toggle' })}
+                          className={`px-3 py-1 rounded text-xs font-bold uppercase tracking-widest transition-colors ${settings.crouchMode === 'toggle' ? 'bg-blue-600 text-white shadow-[0_0_10px_rgba(37,99,235,0.4)]' : 'bg-black/40 text-gray-500 hover:text-gray-300'}`}
+                        >
+                          Toggle
+                        </button>
+                      </div>
+                    )}
+                    {action === 'sprint' && (
+                      <div className="flex justify-end items-center gap-2 px-3 pb-3">
+                        <button 
+                          onClick={() => updateSettings({ sprintMode: 'hold' })}
+                          className={`px-3 py-1 rounded text-xs font-bold uppercase tracking-widest transition-colors ${settings.sprintMode === 'hold' ? 'bg-blue-600 text-white shadow-[0_0_10px_rgba(37,99,235,0.4)]' : 'bg-black/40 text-gray-500 hover:text-gray-300'}`}
+                        >
+                          Hold
+                        </button>
+                        <button 
+                          onClick={() => updateSettings({ sprintMode: 'toggle' })}
+                          className={`px-3 py-1 rounded text-xs font-bold uppercase tracking-widest transition-colors ${settings.sprintMode === 'toggle' ? 'bg-blue-600 text-white shadow-[0_0_10px_rgba(37,99,235,0.4)]' : 'bg-black/40 text-gray-500 hover:text-gray-300'}`}
+                        >
+                          Toggle
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -233,6 +289,7 @@ const UIOverlay = ({ onQuit, roomCode, playerName }: { onQuit: () => void, roomC
     killFeed,
     showSettings,
     toggleSettings,
+    ping,
   } = useGameStore();
 
   const myPlayerState = myId ? players[myId] : null;
@@ -347,7 +404,7 @@ const UIOverlay = ({ onQuit, roomCode, playerName }: { onQuit: () => void, roomC
     
     return (
       <div
-        className={`absolute inset-0 z-50 flex flex-col items-center justify-center text-white font-sans backdrop-blur-xl select-none ${isWinner ? "bg-blue-900/90 text-blue-100" : "bg-gray-900/90 text-gray-100"}`}
+        className={`absolute inset-0 z-50 flex flex-col items-center justify-start pt-[15vh] text-white font-sans backdrop-blur-xl select-none ${isWinner ? "bg-blue-900/90 text-blue-100" : "bg-gray-900/90 text-gray-100"}`}
       >
         <h1 className="text-6xl font-black mb-12 tracking-widest uppercase drop-shadow-2xl">
           {isWinner ? "VICTORY" : "MATCH ENDED"}
@@ -394,18 +451,23 @@ const UIOverlay = ({ onQuit, roomCode, playerName }: { onQuit: () => void, roomC
            ) : <div className="w-24" />}
         </div>
 
-        <div className="text-xl text-gray-300 mb-8 font-mono bg-black/40 px-6 py-2 rounded-full border border-white/10 animate-pulse">
-            Next match starting in {intermissionTime}s...
-        </div>
+        <div className="flex flex-col items-center gap-4 mt-8">
+          <button
+            disabled
+            className="bg-blue-600/80 text-white font-black px-8 py-4 rounded-xl transition-all uppercase tracking-wider text-sm flex items-center gap-3 shadow-[0_0_15px_rgba(37,99,235,0.4)] cursor-default border border-blue-400/30"
+          >
+            <Play size={18} fill="currentColor" /> Play Again ({intermissionTime}s)
+          </button>
 
-        <button
-          onClick={() => {
-            onQuit();
-          }}
-          className="bg-red-600 hover:bg-red-500 text-white font-black px-6 py-3 rounded-xl transition-all uppercase tracking-wider text-xs flex items-center gap-2 shadow-lg hover:scale-105 active:scale-95 pointer-events-auto cursor-pointer"
-        >
-          <LogOut size={14} /> Leave Room
-        </button>
+          <button
+            onClick={() => {
+              onQuit();
+            }}
+            className="text-gray-400 hover:text-white hover:bg-red-600/50 font-bold px-6 py-3 rounded-xl transition-all uppercase tracking-wider text-xs flex items-center gap-2 pointer-events-auto cursor-pointer"
+          >
+            <LogOut size={14} /> Leave Room
+          </button>
+        </div>
       </div>
     );
   }
@@ -418,6 +480,12 @@ const UIOverlay = ({ onQuit, roomCode, playerName }: { onQuit: () => void, roomC
       <div className="pointer-events-none absolute inset-0 z-10 flex flex-col justify-between p-6 select-none font-sans">
         {/* Top HUD */}
         <div className="flex w-full justify-between items-start text-white relative">
+          <div className="absolute left-0 top-0 flex flex-col items-start gap-1">
+            <div className="bg-black/50 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10 shadow-lg flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse pb-px"></div>
+              <span className="text-xs font-mono font-bold text-gray-300">{ping || 0}ms</span>
+            </div>
+          </div>
           {roomCode !== "TRAINING_GROUND" && (
             <>
               <div className="flex-1 flex justify-center items-start flex-wrap gap-4 sm:gap-6 px-4">
@@ -812,14 +880,16 @@ export default function App() {
       const currentRoom = customPlayOptions?.roomCode || socket.io.opts.query.room || "QUICK";
 
       if (currentRoom === "TRAINING_GROUND") {
+        const store = useGameStore.getState();
         for (let i = 0; i < 10; i++) {
           const tId = `target_${i}`;
+          const safeSpawn = getRandomSpawn();
           const spawnPos = {
-             x: (Math.random() - 0.5) * 80,
+             x: safeSpawn.x + (Math.random() - 0.5) * 10,
              y: 0.8,
-             z: (Math.random() - 0.5) * 80
+             z: safeSpawn.z + (Math.random() - 0.5) * 10
           };
-          useGameStore.getState().updatePlayer(tId, {
+          store.updatePlayer(tId, {
             nickname: `Target ${i + 1}`,
             x: spawnPos.x,
             y: spawnPos.y,
@@ -907,10 +977,11 @@ export default function App() {
 
             // Respawn dummy after delay
             setTimeout(() => {
+              const safeSpawn = getRandomSpawn();
               const spawnPos = {
-                 x: (Math.random() - 0.5) * 80,
+                 x: safeSpawn.x + (Math.random() - 0.5) * 10,
                  y: 0.8,
-                 z: (Math.random() - 0.5) * 80
+                 z: safeSpawn.z + (Math.random() - 0.5) * 10
               };
               useGameStore.getState().updatePlayer(data.id, {
                 health: 1,
@@ -961,11 +1032,29 @@ export default function App() {
       useGameStore.getState().removePlayer(id);
     });
 
+    socket.on("pong", (timestamp: number) => {
+      const ping = Date.now() - timestamp;
+      useGameStore.getState().updateGameState({ ping });
+    });
+
     socket.on("disconnect", () => {
       setConnected(false);
     });
 
+    const pingInterval = setInterval(() => {
+      if (socket.connected) {
+        socket.emit("ping", Date.now());
+      }
+    }, 2000);
+
+    const handleBeforeUnload = () => {
+      socket.disconnect();
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
     return () => {
+      clearInterval(pingInterval);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
       socket.off("connect");
       socket.off("gameFull");
       socket.off("gameState");
@@ -980,6 +1069,7 @@ export default function App() {
       socket.off("playerDied");
       socket.off("playerRespawned");
       socket.off("playerLeft");
+      socket.off("pong");
       socket.off("disconnect");
       socket.disconnect();
     };
