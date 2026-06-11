@@ -305,6 +305,7 @@ const PlayerAvatar = ({ outfitColor, eyeColor }: { outfitColor: string, eyeColor
 );
 
 const UIOverlay = ({ onQuit, roomCode, playerName }: { onQuit: () => void, roomCode: string, playerName: string }) => {
+  const [hasSkipped, setHasSkipped] = React.useState(false);
   const {
     matchState,
     timeRemaining,
@@ -485,11 +486,20 @@ const UIOverlay = ({ onQuit, roomCode, playerName }: { onQuit: () => void, roomC
         <div className="flex flex-col items-center gap-4 mt-8">
           <button
             onClick={() => {
-              socket.skipIntermission();
+              if (roomCode === "TRAINING_GROUND" || Object.keys(players).length <= 1) {
+                socket.skipIntermission();
+              } else {
+                setHasSkipped(true);
+              }
             }}
-            className="bg-blue-600 hover:bg-blue-500 text-white font-black px-8 py-4 rounded-xl transition-all uppercase tracking-wider text-sm flex items-center gap-3 shadow-[0_0_15px_rgba(37,99,235,0.4)] pointer-events-auto cursor-pointer border border-blue-400/30"
+            disabled={hasSkipped && Object.keys(players).length > 1}
+            className={`${hasSkipped && Object.keys(players).length > 1 ? "bg-green-600 border-green-500 shadow-[0_0_15px_rgba(22,163,74,0.4)]" : "bg-blue-600 hover:bg-blue-500 border-blue-400/30 shadow-[0_0_15px_rgba(37,99,235,0.4)]"} text-white font-black px-8 py-4 rounded-xl transition-all uppercase tracking-wider text-sm flex items-center gap-3 pointer-events-auto cursor-pointer border disabled:opacity-90 disabled:cursor-default`}
           >
-            <Play size={18} fill="currentColor" /> Play Again ({intermissionTime}s)
+            {hasSkipped && Object.keys(players).length > 1 ? (
+              <>Ready ({intermissionTime}s)</>
+            ) : (
+              <><Play size={18} fill="currentColor" /> Play Again ({intermissionTime}s)</>
+            )}
           </button>
 
           <button
@@ -1211,23 +1221,46 @@ export default function App() {
       {!inMenu && connected && <UIOverlay onQuit={handleQuit} roomCode={customPlayOptions?.roomCode || "QUICK"} playerName={globalName!} />}
 
       {!inMenu && !connected && (
-        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-gray-900 text-white font-sans gap-8">
-          <div className="text-center animate-pulse">
-            <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <h1 className="text-xl font-bold tracking-widest text-blue-400">
-              CONNECTING TO SERVER...
-            </h1>
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-gray-950 text-white font-sans overflow-hidden select-none">
+          {/* Animated Background Elements */}
+          <div className="absolute inset-0 overflow-hidden opacity-20">
+             <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-600/30 rounded-full blur-[100px] animate-pulse"></div>
+             <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-indigo-600/30 rounded-full blur-[100px] animate-pulse" style={{ animationDelay: '1s' }}></div>
           </div>
+          
+          <h1 className="text-6xl font-black mb-8 tracking-[0.2em] text-transparent bg-clip-text bg-gradient-to-br from-blue-400 to-indigo-600 drop-shadow-sm z-10 transition-all hover:scale-105">
+            SNIPER DUEL
+          </h1>
+          
+          <div className="flex flex-col items-center z-10 w-full max-w-sm px-6">
+             <div className="w-full h-1 bg-gray-800 rounded-full overflow-hidden mb-6 relative">
+                <div className="absolute top-0 left-0 h-full bg-blue-500 rounded-full shadow-[0_0_15px_rgba(59,130,246,0.6)]" style={{ width: '100%', transformOrigin: 'left', animation: 'progress 1.5s ease-in-out infinite alternate' }}></div>
+             </div>
+             <p className="text-sm font-bold tracking-widest text-blue-400 uppercase animate-pulse">
+               Connecting to Lobby...
+             </p>
+             <p className="text-xs font-mono text-gray-500 mt-2 text-center">
+               Loading assets & synchronizing game state
+             </p>
+          </div>
+          
           <button
             onClick={() => {
               socket.disconnect();
               useGameStore.getState().resetStore();
               setInMenu(true);
             }}
-            className="bg-red-600 hover:bg-red-500 text-white font-black px-8 py-3.5 rounded-xl transition-all uppercase tracking-wider text-sm flex items-center gap-2 shadow-[0_0_15px_rgba(220,38,38,0.3)] hover:scale-105 active:scale-95 cursor-pointer"
+            className="absolute bottom-12 bg-red-600/20 hover:bg-red-600 text-red-500 hover:text-white border border-red-500/30 font-black px-6 py-3 rounded-xl transition-all uppercase tracking-wider text-xs flex items-center gap-2 hover:scale-105 active:scale-95 cursor-pointer z-10"
           >
-            <LogOut size={16} /> Cancel Connection
+            Cancel
           </button>
+          
+          <style>{`
+            @keyframes progress {
+              0% { transform: scaleX(0.1); }
+              100% { transform: scaleX(1); }
+            }
+          `}</style>
         </div>
       )}
 

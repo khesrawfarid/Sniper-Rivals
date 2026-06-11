@@ -273,12 +273,13 @@ export const MainMenu = ({ onPlay, playerName }: { onPlay: (options?: { name?: s
 
   useEffect(() => {
     // Simulate ping while in lobby
+    const stablePing = 24; // Fixed stable ping for lobby
     if (useGameStore.getState().ping === 0) {
-      useGameStore.getState().updateGameState({ ping: Math.floor(Math.random() * 5) + 18 });
+      useGameStore.getState().updateGameState({ ping: stablePing });
     }
     const interval = setInterval(() => {
       useGameStore.getState().updateGameState({ 
-        ping: Math.floor(Math.random() * 5) + 18 
+        ping: stablePing 
       });
     }, 2000);
     return () => clearInterval(interval);

@@ -108,10 +108,11 @@ class FakeSocket {
       }).catch(console.error);
     } else if (event === "ping") {
       // Simulate real cloud latency (15-40ms) or measure actual firestore latency
-      // A quick doc read costs money, so we simulate network time for ping
+      // Use a stable fake ping based on the user's ID
+      const stablePing = 20 + ((Array.from(this.id).reduce((acc, char) => acc + char.charCodeAt(0), 0)) % 15);
       setTimeout(() => {
         this.trigger("pong", data);
-      }, Math.floor(Math.random() * 5) + 18);
+      }, stablePing);
     }
   }
 
@@ -125,6 +126,7 @@ class FakeSocket {
       let roomId = this.io.opts.query.room;
       let roomRef;
       let matchEndTime = Date.now() + 5 * 60 * 1000;
+      let startWithTime: number | null = null;
 
       if (!roomId) {
         // Quick Match
@@ -150,6 +152,9 @@ class FakeSocket {
           if (playerCount < 8) {
             foundOpenRoom = docSnap.id;
             matchEndTime = data.matchEndTime || matchEndTime;
+            if (data.timeRemaining !== undefined) {
+              startWithTime = data.timeRemaining;
+            }
             break;
           }
         }
@@ -166,7 +171,7 @@ class FakeSocket {
             type: "QUICK",
             state: "playing",
             playerCount: 0,
-            timeRemaining: 110,
+            timeRemaining: 300,
             matchEndTime: matchEndTime,
             createdAt: Date.now(),
           });
@@ -182,7 +187,7 @@ class FakeSocket {
             type: "CUSTOM",
             state: "playing",
             playerCount: 0,
-            timeRemaining: 110,
+            timeRemaining: 300,
             matchEndTime: matchEndTime,
             createdAt: Date.now(),
           });
@@ -194,12 +199,15 @@ class FakeSocket {
           if (playerCount <= 0 && Date.now() - createdAt > 10000) {
             this.isHost = true;
             await updateDoc(roomRef, {
-              timeRemaining: 110,
+              timeRemaining: 300,
               matchEndTime: matchEndTime,
               createdAt: Date.now()
             });
           } else {
             matchEndTime = data?.matchEndTime || matchEndTime;
+            if (data?.timeRemaining !== undefined) {
+              startWithTime = data.timeRemaining;
+            }
           }
         }
       }
@@ -240,8 +248,10 @@ class FakeSocket {
 
       // Init payload
       const snapForInitial = await getDoc(roomRef);
-      let initialRemaining = 110;
-      if (snapForInitial.exists() && snapForInitial.data().timeRemaining !== undefined) {
+      let initialRemaining = 300;
+      if (startWithTime !== null) {
+        initialRemaining = startWithTime;
+      } else if (snapForInitial.exists() && snapForInitial.data().timeRemaining !== undefined) {
          initialRemaining = snapForInitial.data().timeRemaining;
       }
 
@@ -279,10 +289,10 @@ class FakeSocket {
         }
 
         if (localTimeRemaining <= -15) {
-          localTimeRemaining = 110;
+          localTimeRemaining = 300;
           if (this.isHost && this.currentRoom) {
             updateDoc(doc(db, "matches", this.currentRoom), {
-              timeRemaining: 110,
+              timeRemaining: 300,
             }).catch(() => {});
           }
 
