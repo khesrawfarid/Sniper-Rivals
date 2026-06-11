@@ -111,7 +111,7 @@ class FakeSocket {
       // A quick doc read costs money, so we simulate network time for ping
       setTimeout(() => {
         this.trigger("pong", data);
-      }, Math.floor(Math.random() * 25) + 15);
+      }, Math.floor(Math.random() * 5) + 18);
     }
   }
 

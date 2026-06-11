@@ -255,7 +255,6 @@ export const MainMenu = ({ onPlay, playerName }: { onPlay: (options?: { name?: s
   // Custom Match Popup State
   const [showCustomPopup, setShowCustomPopup] = useState(false);
   const [showCustomization, setShowCustomization] = useState(false);
-  const [customName, setCustomName] = useState('Player_' + Math.floor(Math.random() * 9000 + 1000));
   const [roomCode, setRoomCode] = useState('');
   const [popupMode, setPopupMode] = useState<'selection' | 'create' | 'join' | 'bot_difficulty'>('selection');
   const [joinError, setJoinError] = useState('');
@@ -275,11 +274,11 @@ export const MainMenu = ({ onPlay, playerName }: { onPlay: (options?: { name?: s
   useEffect(() => {
     // Simulate ping while in lobby
     if (useGameStore.getState().ping === 0) {
-      useGameStore.getState().updateGameState({ ping: Math.floor(Math.random() * 25) + 15 });
+      useGameStore.getState().updateGameState({ ping: Math.floor(Math.random() * 5) + 18 });
     }
     const interval = setInterval(() => {
       useGameStore.getState().updateGameState({ 
-        ping: Math.floor(Math.random() * 25) + 15 
+        ping: Math.floor(Math.random() * 5) + 18 
       });
     }, 2000);
     return () => clearInterval(interval);
@@ -865,7 +864,7 @@ export const MainMenu = ({ onPlay, playerName }: { onPlay: (options?: { name?: s
                       <p className="text-xs text-gray-400">Share this code with your friend to play together.</p>
                     </div>
                     <button 
-                      onClick={() => onPlay({ name: customName, roomCode: roomCode })}
+                      onClick={() => onPlay({ name: playerName || undefined, roomCode: roomCode })}
                       className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-4 rounded-xl shadow-[0_0_20px_rgba(37,99,235,0.3)] transition-all uppercase"
                     >
                       Start Lobby
@@ -898,7 +897,7 @@ export const MainMenu = ({ onPlay, playerName }: { onPlay: (options?: { name?: s
                           if (!roomSnap.exists()) {
                             setJoinError('Lobby not found. Check code.');
                           } else {
-                            onPlay({ name: customName, roomCode: roomCode });
+                            onPlay({ name: playerName || undefined, roomCode: roomCode });
                           }
                         } catch (err) {
                           setJoinError('Failed to check lobby. Try again.');

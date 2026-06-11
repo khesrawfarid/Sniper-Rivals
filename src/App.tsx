@@ -872,7 +872,7 @@ export default function App() {
 
     if (customPlayOptions) {
       socket.io.opts.query = {
-        name: globalName,
+        name: customPlayOptions.name || globalName,
         room: customPlayOptions.roomCode || "",
         outfitColor: settings.outfitColor,
         eyeColor: settings.eyeColor,
@@ -889,7 +889,7 @@ export default function App() {
     socket.connect();
 
     socket.on("connect", () => {
-      setConnected(true);
+      // socket connected, but wait for init
     });
 
     socket.on("gameFull", () => {
@@ -913,6 +913,7 @@ export default function App() {
         if (id === data.id)
           useGameStore.getState().setLocalState({ health: pInfo.health });
       });
+      setConnected(true);
     });
 
     socket.on("playerJoined", (data: { id: string; player: any }) => {
