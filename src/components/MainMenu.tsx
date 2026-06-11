@@ -1,4 +1,4 @@
-import React, { useState, useRef, Suspense } from 'react';
+import React, { useState, useRef, Suspense, useEffect } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Environment, Float, Sparkles, PerspectiveCamera, Sky, Stars, OrbitControls, useGLTF, useAnimations } from '@react-three/drei';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -270,7 +270,20 @@ export const MainMenu = ({ onPlay, playerName }: { onPlay: (options?: { name?: s
     setRoomCode(code);
     setPopupMode('create');
   };
-  const { settings, updateSettings } = useGameStore();
+  const { settings, updateSettings, ping } = useGameStore();
+
+  useEffect(() => {
+    // Simulate ping while in lobby
+    if (useGameStore.getState().ping === 0) {
+      useGameStore.getState().updateGameState({ ping: Math.floor(Math.random() * 25) + 15 });
+    }
+    const interval = setInterval(() => {
+      useGameStore.getState().updateGameState({ 
+        ping: Math.floor(Math.random() * 25) + 15 
+      });
+    }, 2000);
+    return () => clearInterval(interval);
+  }, []);
 
   const activeMenuData = menuItems.find(m => m.id === activeMenu);
 
@@ -283,6 +296,19 @@ export const MainMenu = ({ onPlay, playerName }: { onPlay: (options?: { name?: s
             <MenuBackground />
           </Suspense>
         </Canvas>
+      </div>
+
+      {/* FPS/Ping Overlay */}
+      <div className="absolute left-4 top-4 z-50 flex flex-col items-start gap-1">
+        <div className="bg-black/50 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10 shadow-lg flex items-center gap-2">
+          {ping > 0 ? (
+             <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse pb-px"></div>
+          ) : (
+             <div className="w-2 h-2 rounded-full bg-red-500 pb-px"></div>
+          )}
+          <span className="text-xs font-mono font-bold text-gray-300">{ping > 0 ? ping : "----"}ms</span>
+          {settings.showFps && <span id="fps-counter" className="text-xs font-mono font-bold text-gray-300">0 FPS</span>}
+        </div>
       </div>
 
       {/* Vignette & CRT Effect Layers */}
@@ -590,7 +616,7 @@ export const MainMenu = ({ onPlay, playerName }: { onPlay: (options?: { name?: s
                    </div>
 
                    <div className="flex gap-6 border-b border-white/10 mb-6">
-                     {['AUDIO', 'MOUSE & KEYBOARD'].map((tab) => (
+                     {['AUDIO', 'VIDEO', 'MOUSE & KEYBOARD'].map((tab) => (
                        <button
                          key={tab}
                          onClick={() => setActiveSettingsTab(tab)}
@@ -635,6 +661,33 @@ export const MainMenu = ({ onPlay, playerName }: { onPlay: (options?: { name?: s
                          </div>
 
                        </div>
+                   )}
+
+                   {activeSettingsTab === 'VIDEO' && (
+                     <div className="space-y-6">
+                       <div className="space-y-4">
+                         <div className="flex justify-between items-center">
+                           <label className="text-sm font-bold text-gray-300 uppercase tracking-widest">Base FOV</label>
+                           <span className="text-blue-400 font-mono font-bold bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">{settings.fov}</span>
+                         </div>
+                         <input 
+                           type="range" min="60" max="120" step="1" 
+                           value={settings.fov} 
+                           onChange={(e) => updateSettings({ fov: parseInt(e.target.value) })}
+                           className="w-full h-1.5 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-blue-500 block"
+                         />
+                       </div>
+
+                       <div className="flex items-center justify-between border-t border-white/5 pt-6 mt-2">
+                         <span className="text-sm font-bold text-gray-300 uppercase tracking-widest">Show FPS</span>
+                         <input 
+                           type="checkbox" 
+                           checked={settings.showFps}
+                           onChange={(e) => updateSettings({ showFps: e.target.checked })}
+                           className="w-5 h-5 accent-blue-500"
+                         />
+                       </div>
+                     </div>
                    )}
 
                    {activeSettingsTab === 'MOUSE & KEYBOARD' && (

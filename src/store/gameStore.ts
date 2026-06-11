@@ -12,6 +12,7 @@ interface GameSettings {
   sprintMode: 'toggle' | 'hold';
   masterVolume: number;
   uiVolume: number;
+  showFps: boolean;
   keybinds: {
     forward: string;
     backward: string;
@@ -32,6 +33,7 @@ interface GameState {
   timeRemaining: number;
   intermissionTime?: number;
   winner: string | null;
+  afkKicked: boolean;
   
   // Local Player State
   ammo: number;
@@ -73,6 +75,7 @@ const defaultSettings: GameSettings = {
   uiVolume: 1.0,
   crouchMode: 'hold',
   sprintMode: 'hold',
+  showFps: true,
   keybinds: {
     forward: 'w',
     backward: 's',
@@ -99,8 +102,9 @@ export const useGameStore = create<GameState>((set) => ({
   bullets: [],
   myId: null,
   matchState: 'waiting',
-  timeRemaining: 300,
+  timeRemaining: 110,
   winner: null,
+  afkKicked: false,
   
   ammo: 5,
   isScoped: false,
@@ -168,8 +172,9 @@ export const useGameStore = create<GameState>((set) => ({
     bullets: [],
     myId: null,
     matchState: 'waiting',
-    timeRemaining: 300,
+    timeRemaining: 110,
     winner: null,
+    afkKicked: false,
     ammo: 5,
     isScoped: false,
     isReloading: false,

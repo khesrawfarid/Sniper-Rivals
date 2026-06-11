@@ -17,14 +17,14 @@ import {
 } from "firebase/firestore";
 
 const SAFE_SPAWNS = [
-  { x: -15, z: -15 },
-  { x: 15, z: 15 },
-  { x: -15, z: 15 },
-  { x: 15, z: -15 },
-  { x: 0, z: 20 },
-  { x: 0, z: -20 },
-  { x: 20, z: 0 },
-  { x: -20, z: 0 },
+  { x: -15, y: 10, z: -15 },
+  { x: 15, y: 10, z: 15 },
+  { x: -15, y: 10, z: 15 },
+  { x: 15, y: 10, z: -15 },
+  { x: 0, y: 10, z: 20 },
+  { x: 0, y: 10, z: -20 },
+  { x: 20, y: 10, z: 0 },
+  { x: -20, y: 10, z: 0 },
 ];
 
 export const getRandomSpawn = () =>
@@ -166,7 +166,7 @@ class FakeSocket {
             type: "QUICK",
             state: "playing",
             playerCount: 0,
-            timeRemaining: 300,
+            timeRemaining: 110,
             matchEndTime: matchEndTime,
             createdAt: Date.now(),
           });
@@ -182,7 +182,7 @@ class FakeSocket {
             type: "CUSTOM",
             state: "playing",
             playerCount: 0,
-            timeRemaining: 300,
+            timeRemaining: 110,
             matchEndTime: matchEndTime,
             createdAt: Date.now(),
           });
@@ -194,7 +194,7 @@ class FakeSocket {
           if (playerCount <= 0 && Date.now() - createdAt > 10000) {
             this.isHost = true;
             await updateDoc(roomRef, {
-              timeRemaining: 300,
+              timeRemaining: 110,
               matchEndTime: matchEndTime,
               createdAt: Date.now()
             });
@@ -217,7 +217,7 @@ class FakeSocket {
       const spawn = getRandomSpawn();
       const myPlayerState = {
         x: spawn.x,
-        y: 10,
+        y: spawn.y,
         z: spawn.z,
         rx: 0,
         ry: 0,
@@ -240,7 +240,7 @@ class FakeSocket {
 
       // Init payload
       const snapForInitial = await getDoc(roomRef);
-      let initialRemaining = 300;
+      let initialRemaining = 110;
       if (snapForInitial.exists() && snapForInitial.data().timeRemaining !== undefined) {
          initialRemaining = snapForInitial.data().timeRemaining;
       }
@@ -248,7 +248,7 @@ class FakeSocket {
       this.trigger("init", {
         id: this.id,
         matchState: "playing",
-        timeRemaining: initialRemaining > -10 ? initialRemaining : 0,
+        timeRemaining: initialRemaining > -15 ? initialRemaining : 0,
         players: {},
       });
       this.trigger("matchStarted", { players: { [this.id]: myPlayerState } });
@@ -259,7 +259,7 @@ class FakeSocket {
         if (snap.exists() && snap.data().timeRemaining !== undefined) {
           const tr = snap.data().timeRemaining;
           // If we drift too far, snap to authoritative time from host
-          if (!this.isHost && Math.abs(localTimeRemaining - tr) > 2) {
+          if (tr === -15 || (!this.isHost && Math.abs(localTimeRemaining - tr) > 2)) {
              localTimeRemaining = tr;
           }
         }
@@ -278,11 +278,11 @@ class FakeSocket {
           }).catch(() => {});
         }
 
-        if (localTimeRemaining <= -10) {
-          localTimeRemaining = 300;
+        if (localTimeRemaining <= -15) {
+          localTimeRemaining = 110;
           if (this.isHost && this.currentRoom) {
             updateDoc(doc(db, "matches", this.currentRoom), {
-              timeRemaining: 300,
+              timeRemaining: 110,
             }).catch(() => {});
           }
 
@@ -319,9 +319,9 @@ class FakeSocket {
             .updateGameState({
               timeRemaining: localTimeRemaining,
               intermissionTime:
-                localTimeRemaining <= 0 ? 10 + localTimeRemaining : 0,
+                localTimeRemaining <= 0 ? 15 + localTimeRemaining : 0,
             });
-          if (localTimeRemaining <= 0 && localTimeRemaining > -10 && this.currentRoom !== "TRAINING_GROUND") {
+          if (localTimeRemaining <= 0 && localTimeRemaining > -15 && this.currentRoom !== "TRAINING_GROUND") {
             useGameStore.getState().updateGameState({ matchState: "ended" });
           }
         });
@@ -549,6 +549,26 @@ class FakeSocket {
       }).catch((e) => {});
     }
     this.trigger("disconnect");
+  }
+
+  skipIntermission() {
+    if (this.currentRoom && this.isHost) {
+      updateDoc(doc(db, "matches", this.currentRoom), {
+        timeRemaining: -15, // Instantly trigger the round restart which happens at <= -15
+      }).catch(() => {});
+    } else if (this.currentRoom) {
+      // For a quick fix so it "works" for anyone playing alone or host:
+      updateDoc(doc(db, "matches", this.currentRoom), {
+        timeRemaining: -15,
+      }).catch(() => {});
+    }
+    // Update local state instantly so the interval catches it on next tick
+    import("./store/gameStore").then(({ useGameStore }) => {
+      useGameStore.getState().updateGameState({ 
+        timeRemaining: -15, 
+        intermissionTime: 0 
+      });
+    });
   }
 
   private trigger(event: string, data?: any) {

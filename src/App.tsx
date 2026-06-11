@@ -1,4 +1,4 @@
-import React, { useEffect, useState, Suspense } from "react";
+import React, { useEffect, useState, Suspense, useRef } from "react";
 import { Canvas } from "@react-three/fiber";
 import { socket } from "./socket";
 import { getRandomSpawn } from "./socket";
@@ -54,7 +54,7 @@ const SettingsMenu = ({ onQuit }: { onQuit: () => void }) => {
         </h2>
 
         <div className="flex gap-6 border-b border-gray-700 mb-6">
-          {["AUDIO", "MOUSE & KEYBOARD"].map((tab) => (
+          {["AUDIO", "VIDEO", "MOUSE & KEYBOARD"].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -114,6 +114,42 @@ const SettingsMenu = ({ onQuit }: { onQuit: () => void }) => {
             </div>
           )}
 
+          {activeTab === "VIDEO" && (
+            <div className="space-y-6">
+              <div>
+                <label className="flex justify-between text-sm font-bold text-gray-400 mb-2 uppercase">
+                  <span>Base FOV</span>
+                  <span>{settings.fov}</span>
+                </label>
+                <input
+                  type="range"
+                  min="60"
+                  max="120"
+                  step="1"
+                  value={settings.fov}
+                  onChange={(e) =>
+                    updateSettings({ fov: parseInt(e.target.value) })
+                  }
+                  className="w-full accent-blue-500"
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-bold text-gray-400 uppercase">
+                  Show FPS
+                </span>
+                <input
+                  type="checkbox"
+                  checked={settings.showFps}
+                  onChange={(e) =>
+                    updateSettings({ showFps: e.target.checked })
+                  }
+                  className="w-5 h-5 accent-blue-500"
+                />
+              </div>
+            </div>
+          )}
+
           {activeTab === "MOUSE & KEYBOARD" && (
             <div className="space-y-6">
               <div>
@@ -145,24 +181,6 @@ const SettingsMenu = ({ onQuit }: { onQuit: () => void }) => {
                     updateSettings({ invertMouse: e.target.checked })
                   }
                   className="w-5 h-5 accent-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="flex justify-between text-sm font-bold text-gray-400 mb-2 uppercase">
-                  <span>Base FOV</span>
-                  <span>{settings.fov}</span>
-                </label>
-                <input
-                  type="range"
-                  min="60"
-                  max="120"
-                  step="1"
-                  value={settings.fov}
-                  onChange={(e) =>
-                    updateSettings({ fov: parseInt(e.target.value) })
-                  }
-                  className="w-full accent-blue-500"
                 />
               </div>
 
@@ -254,6 +272,19 @@ const SettingsMenu = ({ onQuit }: { onQuit: () => void }) => {
         </button>
       </div>
     </div>
+  );
+};
+
+const FpsCounter = () => {
+  const { settings } = useGameStore();
+
+  if (!settings.showFps) return null;
+
+  return (
+    <>
+      <div className="w-px h-3 bg-white/20 mx-1"></div>
+      <span id="fps-counter" className="text-xs font-mono font-bold text-gray-300">0 FPS</span>
+    </>
   );
 };
 
@@ -404,21 +435,21 @@ const UIOverlay = ({ onQuit, roomCode, playerName }: { onQuit: () => void, roomC
     
     return (
       <div
-        className={`absolute inset-0 z-50 flex flex-col items-center justify-start pt-[15vh] text-white font-sans backdrop-blur-xl select-none ${isWinner ? "bg-blue-900/90 text-blue-100" : "bg-gray-900/90 text-gray-100"}`}
+        className={`absolute inset-0 z-[100] flex flex-col items-center justify-center pt-8 overflow-y-auto text-white font-sans backdrop-blur-xl select-none ${isWinner ? "bg-blue-900/90 text-blue-100" : "bg-gray-900/90 text-gray-100"}`}
       >
-        <h1 className="text-6xl font-black mb-12 tracking-widest uppercase drop-shadow-2xl">
+        <h1 className="text-6xl md:text-8xl font-black mb-8 tracking-widest uppercase drop-shadow-2xl">
           {isWinner ? "VICTORY" : "MATCH ENDED"}
         </h1>
 
-        <div className="flex items-end justify-center gap-6 sm:gap-12 mb-16 h-64">
+        <div className="flex items-end justify-center gap-6 sm:gap-12 mb-8 h-auto pb-4">
            {/* SECOND PLACE */}
            {sortedPlayers.length > 1 ? (
               <div className="flex flex-col items-center animate-fade-in-up" style={{ animationDelay: '0.4s' }}>
                   <span className="text-gray-400 font-bold mb-2 uppercase tracking-wide text-sm">2nd</span>
-                  <div className="w-20 h-20 bg-gray-800 border-4 border-gray-600 rounded-2xl flex items-center justify-center shadow-lg mb-4 overflow-hidden relative">
+                  <div className={`w-20 h-20 bg-gray-800 border-4 rounded-2xl flex items-center justify-center shadow-lg mb-4 overflow-hidden relative ${sortedPlayers[1].id === myId ? 'border-yellow-400 shadow-[0_0_20px_rgba(250,204,21,0.4)]' : 'border-gray-600'}`}>
                     <PlayerAvatar outfitColor={sortedPlayers[1].outfitColor as string} eyeColor={sortedPlayers[1].eyeColor as string} />
                   </div>
-                  <span className="font-bold text-lg max-w-[120px] truncate">{sortedPlayers[1].id === myId ? playerName : sortedPlayers[1].nickname || 'Player'}</span>
+                  <span className={`font-bold text-lg max-w-[120px] truncate ${sortedPlayers[1].id === myId ? 'text-yellow-100' : ''}`}>{sortedPlayers[1].id === myId ? playerName : sortedPlayers[1].nickname || 'Player'}</span>
                   <span className="text-gray-400 font-mono text-sm">{sortedPlayers[1].kills || 0} Kills</span>
                   <div className="w-24 h-24 bg-gray-800 border-t-4 border-gray-600 rounded-t-xl mt-4 opacity-80" />
               </div>
@@ -427,34 +458,36 @@ const UIOverlay = ({ onQuit, roomCode, playerName }: { onQuit: () => void, roomC
            {/* FIRST PLACE */}
            {sortedPlayers.length > 0 && (
               <div className="flex flex-col items-center animate-fade-in-up scale-110 z-10">
-                  <span className="text-yellow-400 font-black mb-2 uppercase tracking-widest drop-shadow-[0_0_10px_rgba(250,204,21,0.8)]">1st</span>
-                  <div className="w-28 h-28 bg-gray-800 border-4 border-yellow-400 rounded-2xl flex items-center justify-center shadow-[0_0_30px_rgba(250,204,21,0.5)] mb-4 overflow-hidden relative">
+                  <span className="text-white/80 font-black mb-2 uppercase tracking-widest">1st</span>
+                  <div className={`w-28 h-28 bg-gray-800 border-4 rounded-2xl flex items-center justify-center mb-4 overflow-hidden relative ${sortedPlayers[0].id === myId ? 'border-yellow-400 shadow-[0_0_30px_rgba(250,204,21,0.5)]' : 'border-gray-400 shadow-lg'}`}>
                     <PlayerAvatar outfitColor={sortedPlayers[0].outfitColor as string} eyeColor={sortedPlayers[0].eyeColor as string} />
                   </div>
-                  <span className="font-black text-xl text-yellow-100 max-w-[140px] truncate">{sortedPlayers[0].id === myId ? playerName : sortedPlayers[0].nickname || 'Player'}</span>
-                  <span className="text-yellow-200/80 font-mono font-bold mt-1">{sortedPlayers[0].kills || 0} Kills</span>
-                  <div className="w-32 h-32 bg-yellow-600/20 border-t-4 border-yellow-400 rounded-t-xl mt-4 backdrop-blur-sm" />
+                  <span className={`font-black text-xl max-w-[140px] truncate ${sortedPlayers[0].id === myId ? 'text-yellow-100' : 'text-white'}`}>{sortedPlayers[0].id === myId ? playerName : sortedPlayers[0].nickname || 'Player'}</span>
+                  <span className={`${sortedPlayers[0].id === myId ? 'text-yellow-200/80' : 'text-gray-300'} font-mono font-bold mt-1`}>{sortedPlayers[0].kills || 0} Kills</span>
+                  <div className={`w-32 h-32 border-t-4 rounded-t-xl mt-4 backdrop-blur-sm ${sortedPlayers[0].id === myId ? 'bg-yellow-600/20 border-yellow-400' : 'bg-gray-600/20 border-gray-400'}`} />
               </div>
            )}
 
            {/* THIRD PLACE */}
            {sortedPlayers.length > 2 ? (
               <div className="flex flex-col items-center animate-fade-in-up" style={{ animationDelay: '0.8s' }}>
-                  <span className="text-orange-400/80 font-bold mb-2 uppercase tracking-wide text-sm">3rd</span>
-                  <div className="w-20 h-20 bg-gray-800 border-4 border-orange-500/50 rounded-2xl flex items-center justify-center shadow-lg mb-4 overflow-hidden relative">
+                  <span className="text-gray-500 font-bold mb-2 uppercase tracking-wide text-sm">3rd</span>
+                  <div className={`w-20 h-20 bg-gray-800 border-4 rounded-2xl flex items-center justify-center shadow-lg mb-4 overflow-hidden relative ${sortedPlayers[2].id === myId ? 'border-yellow-400 shadow-[0_0_20px_rgba(250,204,21,0.4)]' : 'border-gray-700'}`}>
                     <PlayerAvatar outfitColor={sortedPlayers[2].outfitColor as string} eyeColor={sortedPlayers[2].eyeColor as string} />
                   </div>
-                  <span className="font-bold text-lg max-w-[120px] truncate">{sortedPlayers[2].id === myId ? playerName : sortedPlayers[2].nickname || 'Player'}</span>
+                  <span className={`font-bold text-lg max-w-[120px] truncate ${sortedPlayers[2].id === myId ? 'text-yellow-100' : ''}`}>{sortedPlayers[2].id === myId ? playerName : sortedPlayers[2].nickname || 'Player'}</span>
                   <span className="text-gray-400 font-mono text-sm">{sortedPlayers[2].kills || 0} Kills</span>
-                  <div className="w-24 h-16 bg-gray-800/80 border-t-4 border-orange-500/50 rounded-t-xl mt-4 opacity-80" />
+                  <div className="w-24 h-16 bg-gray-800/80 border-t-4 border-gray-700 rounded-t-xl mt-4 opacity-80" />
               </div>
            ) : <div className="w-24" />}
         </div>
 
         <div className="flex flex-col items-center gap-4 mt-8">
           <button
-            disabled
-            className="bg-blue-600/80 text-white font-black px-8 py-4 rounded-xl transition-all uppercase tracking-wider text-sm flex items-center gap-3 shadow-[0_0_15px_rgba(37,99,235,0.4)] cursor-default border border-blue-400/30"
+            onClick={() => {
+              socket.skipIntermission();
+            }}
+            className="bg-blue-600 hover:bg-blue-500 text-white font-black px-8 py-4 rounded-xl transition-all uppercase tracking-wider text-sm flex items-center gap-3 shadow-[0_0_15px_rgba(37,99,235,0.4)] pointer-events-auto cursor-pointer border border-blue-400/30"
           >
             <Play size={18} fill="currentColor" /> Play Again ({intermissionTime}s)
           </button>
@@ -484,6 +517,7 @@ const UIOverlay = ({ onQuit, roomCode, playerName }: { onQuit: () => void, roomC
             <div className="bg-black/50 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10 shadow-lg flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse pb-px"></div>
               <span className="text-xs font-mono font-bold text-gray-300">{ping || 0}ms</span>
+              <FpsCounter />
             </div>
           </div>
           {roomCode !== "TRAINING_GROUND" && (
@@ -494,13 +528,13 @@ const UIOverlay = ({ onQuit, roomCode, playerName }: { onQuit: () => void, roomC
                   .sort((a, b) => (b.kills || 0) - (a.kills || 0))
                   .map(({ id, nickname, kills, outfitColor, eyeColor }) => (
                     <div key={id} className={`flex flex-col items-center gap-1.5 transition-all ${id === myId ? 'scale-110' : 'opacity-80'}`}>
-                      <span className={`text-[10px] font-black uppercase tracking-widest truncate max-w-[80px] ${id === myId ? 'text-blue-400 drop-shadow-[0_0_5px_rgba(59,130,246,0.5)]' : 'text-gray-400'}`}>
+                      <span className={`text-[10px] font-black uppercase tracking-widest truncate max-w-[80px] ${id === myId ? 'text-yellow-400 drop-shadow-[0_0_5px_rgba(250,204,21,0.5)]' : 'text-gray-400'}`}>
                         {id === myId ? (nickname || playerName) : (nickname || 'Player')}
                       </span>
-                      <div className={`w-12 h-12 sm:w-14 sm:h-14 bg-black/60 backdrop-blur-md rounded-xl border flex items-center justify-center shadow-lg overflow-hidden ${id === myId ? 'border-blue-500/50 shadow-[0_0_15px_rgba(37,99,235,0.3)]' : 'border-white/10'}`}>
+                      <div className={`w-12 h-12 sm:w-14 sm:h-14 bg-black/60 backdrop-blur-md rounded-xl border flex items-center justify-center shadow-lg overflow-hidden ${id === myId ? 'border-yellow-400/80 shadow-[0_0_15px_rgba(250,204,21,0.3)]' : 'border-white/10'}`}>
                         <PlayerAvatar outfitColor={outfitColor as string} eyeColor={eyeColor as string} />
                       </div>
-                      <span className={`text-sm font-black font-mono text-white bg-black/60 px-3 py-1 rounded-lg border border-white/10 min-w-[40px] text-center shadow-lg ${id === myId ? 'border-blue-500/30 text-blue-100' : ''}`}>
+                      <span className={`text-sm font-black font-mono text-white bg-black/60 px-3 py-1 rounded-lg border border-white/10 min-w-[40px] text-center shadow-lg ${id === myId ? 'border-yellow-400/50 text-yellow-100' : ''}`}>
                         {kills || 0}
                       </span>
                     </div>
@@ -792,10 +826,44 @@ export default function App() {
   const [inMenu, setInMenu] = useState(true);
   const [connected, setConnected] = useState(false);
   const [gameFull, setGameFull] = useState(false);
+  const [showAfkModal, setShowAfkModal] = useState(false);
+  const lastInputTime = React.useRef(Date.now());
   const [customPlayOptions, setCustomPlayOptions] = useState<{
     name?: string;
     roomCode?: string;
   } | null>(null);
+
+  useEffect(() => {
+    const resetTimer = () => {
+      lastInputTime.current = Date.now();
+    };
+    window.addEventListener("mousemove", resetTimer);
+    window.addEventListener("mousedown", resetTimer);
+    window.addEventListener("keydown", resetTimer);
+    return () => {
+      window.removeEventListener("mousemove", resetTimer);
+      window.removeEventListener("mousedown", resetTimer);
+      window.removeEventListener("keydown", resetTimer);
+    };
+  }, []);
+
+  const handleQuit = () => {
+    socket.disconnect();
+    useGameStore.getState().resetStore();
+    setInMenu(true);
+  };
+
+  useEffect(() => {
+    const afkInterval = setInterval(() => {
+      if (!inMenu && connected) {
+        if (Date.now() - lastInputTime.current > 72000) {
+          handleQuit();
+          setShowAfkModal(true);
+        }
+      }
+    }, 1000);
+    return () => clearInterval(afkInterval);
+  }, [inMenu, connected]);
 
   useEffect(() => {
     if (inMenu || !globalName) return;
@@ -1112,12 +1180,6 @@ export default function App() {
     );
   }
 
-  const handleQuit = () => {
-    socket.disconnect();
-    useGameStore.getState().resetStore();
-    setInMenu(true);
-  };
-
   if (!globalName) {
     return <NameSetup onComplete={setGlobalName} />;
   }
@@ -1171,6 +1233,25 @@ export default function App() {
       <div className="hidden lg:block absolute bottom-2 left-2 text-[10px] text-gray-600 z-50 mix-blend-difference pointer-events-none">
         Desktop Recommended
       </div>
+
+      {showAfkModal && (
+        <div className="absolute inset-0 z-[200] flex items-center justify-center bg-black/90 backdrop-blur-sm animate-fade-in">
+          <div className="bg-gray-900 border border-red-500/30 p-10 rounded-2xl w-[400px] text-center shadow-[0_0_50px_rgba(220,38,38,0.2)]">
+            <h2 className="text-3xl font-black mb-4 uppercase text-red-500 tracking-wider">
+              Disconnected
+            </h2>
+            <p className="text-gray-300 font-medium mb-8">
+              You were disconnected for being AFK.
+            </p>
+            <button
+              onClick={() => setShowAfkModal(false)}
+              className="bg-red-600 hover:bg-red-500 text-white font-black px-8 py-3 rounded-xl transition-all uppercase tracking-wider text-sm shadow-[0_0_15px_rgba(220,38,38,0.4)] pointer-events-auto cursor-pointer"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
