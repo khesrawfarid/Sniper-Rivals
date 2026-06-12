@@ -442,13 +442,11 @@ export const MainMenu = ({ onPlay, playerName }: { onPlay: (options?: { name?: s
         <div className="w-[30%] flex flex-col justify-between">
           <div>
             <div className="flex items-center gap-4 mb-12">
-              <img src={`${import.meta.env.BASE_URL}favicon.png`} alt="Logo" className="h-16 w-auto rounded-2xl drop-shadow-[0_0_20px_rgba(59,130,246,0.5)] object-contain overflow-hidden" />
+              <img src={`${import.meta.env.BASE_URL}favicon.png`} alt="Sniper Rivals Icon" className="h-16 w-auto rounded-2xl drop-shadow-[0_0_20px_rgba(59,130,246,0.5)] object-contain overflow-hidden" />
               <div className="flex flex-col">
-                <h1 className="text-4xl font-black italic tracking-widest text-white uppercase drop-shadow-[0_0_15px_rgba(59,130,246,0.5)] leading-tight">
-                  Sniper
-                </h1>
-                <h1 className="text-4xl font-black italic tracking-widest text-blue-500 uppercase leading-tight">
-                  Rivals
+                <h1 className="text-4xl font-black italic tracking-widest uppercase leading-tight">
+                  <span className="text-white drop-shadow-[0_0_15px_rgba(59,130,246,0.5)] block">Sniper</span>
+                  <span className="text-blue-500 block">Rivals</span>
                 </h1>
               </div>
             </div>

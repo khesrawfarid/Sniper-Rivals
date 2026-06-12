@@ -376,7 +376,7 @@ const UIOverlay = ({ onQuit, roomCode, playerName }: { onQuit: () => void, roomC
     return (
       <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-gray-900/90 text-white font-sans backdrop-blur-sm select-none">
         <h1 className="text-5xl font-black mb-4 tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-500">
-          SNIPER DUEL
+          SNIPER RIVALS
         </h1>
         <p className="text-xl animate-pulse text-gray-300">
           Waiting for opponent to connect...
@@ -796,9 +796,9 @@ const NameSetup = ({ onComplete }: { onComplete: (name: string) => void }) => {
   return (
     <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black">
       <div className="bg-gray-900 border border-white/10 p-10 rounded-2xl w-full max-w-md shadow-2xl">
-        <h2 className="text-3xl font-black italic tracking-widest text-blue-400 uppercase mb-8 text-center">
+        <h1 className="text-3xl font-black italic tracking-widest text-blue-400 uppercase mb-8 text-center">
           Sniper Rivals
-        </h2>
+        </h1>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label className="block text-xs font-black text-gray-500 uppercase tracking-[0.2em] mb-2 px-1 text-center">
@@ -1229,7 +1229,7 @@ export default function App() {
           </div>
           
           <h1 className="text-6xl font-black mb-8 tracking-[0.2em] text-transparent bg-clip-text bg-gradient-to-br from-blue-400 to-indigo-600 drop-shadow-sm z-10 transition-all hover:scale-105">
-            SNIPER DUEL
+            SNIPER RIVALS
           </h1>
           
           <div className="flex flex-col items-center z-10 w-full max-w-sm px-6">
