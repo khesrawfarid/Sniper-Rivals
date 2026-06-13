@@ -866,7 +866,7 @@ export default function App() {
   useEffect(() => {
     const afkInterval = setInterval(() => {
       if (!inMenu && connected) {
-        if (Date.now() - lastInputTime.current > 72000) {
+        if (Date.now() - lastInputTime.current > 90000) {
           handleQuit();
           setShowAfkModal(true);
         }

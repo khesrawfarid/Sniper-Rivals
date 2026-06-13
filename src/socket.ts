@@ -66,14 +66,25 @@ class FakeSocket {
       this.lastMoveTime = now;
 
       const playerRef = doc(db, "matches", this.currentRoom, "players", this.id);
-      setDoc(
-        playerRef,
-        {
-          ...data,
-          lastUpdate: now,
-        },
-        { merge: true },
-      ).catch(console.error);
+      updateDoc(playerRef, {
+        ...data,
+        lastUpdate: now,
+      }).catch((e) => {
+        import("./store/gameStore").then(({ useGameStore }) => {
+          const state = useGameStore.getState();
+          const me = state.players[this.id];
+          setDoc(playerRef, {
+            ...data,
+            health: me?.health ?? 100,
+            kills: me?.kills ?? 0,
+            deaths: me?.deaths ?? 0,
+            nickname: this.io.opts.query.name || "Player",
+            outfitColor: this.io.opts.query.outfitColor || "#3182ce",
+            eyeColor: this.io.opts.query.eyeColor || "#1a202c",
+            lastUpdate: now,
+          }).catch(console.error);
+        });
+      });
     } else if (event === "shoot") {
       const eventsRef = collection(db, "matches", this.currentRoom, "events");
       addDoc(eventsRef, {
@@ -527,7 +538,7 @@ class FakeSocket {
             if (
               id !== this.id &&
               player.localLastUpdate &&
-              now - player.localLastUpdate > 3000
+              now - player.localLastUpdate > 90000
             ) {
               if (!id.startsWith("target_") && !id.startsWith("bot_")) {
                 this.trigger("playerLeft", id);
