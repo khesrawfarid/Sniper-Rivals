@@ -216,18 +216,18 @@ function CustomizationCamera({ focusedPart, controlsRef }: { focusedPart: 'skin'
   useFrame((state, delta) => {
     if (manualMode.current) return;
 
-    let desiredPos = new THREE.Vector3(0, 0.4, 4);
-    let desiredLookAt = new THREE.Vector3(0, 0.2, 0);
+    let desiredPos = new THREE.Vector3(0, 0.0, 3.5);
+    let desiredLookAt = new THREE.Vector3(0, -0.1, 0);
 
     if (focusedPart === 'skin') {
-      desiredPos.set(0, 0.8, 1.8);
-      desiredLookAt.set(0, 0.8, 0);
+      desiredPos.set(0, 0.4, 1.8);
+      desiredLookAt.set(0, 0.4, 0);
     } else if (focusedPart === 'hat') {
-      desiredPos.set(0, 1.1, 1.8);
-      desiredLookAt.set(0, 1.0, 0);
+      desiredPos.set(0, 0.45, 1.0);
+      desiredLookAt.set(0, 0.45, 0);
     } else if (focusedPart === 'outfit') {
-      desiredPos.set(0, 0.2, 2.5);
-      desiredLookAt.set(0, 0.2, 0);
+      desiredPos.set(0, -0.1, 3.0);
+      desiredLookAt.set(0, -0.1, 0);
     } else {
         if (camera.position.distanceTo(desiredPos) < 0.05 && controlsRef.current?.target.distanceTo(desiredLookAt) < 0.05) {
             return;

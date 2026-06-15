@@ -22,7 +22,7 @@ export const UploadedCharacter = ({
   scale?: [number, number, number];
   hasWeapon?: boolean;
 }) => {
-  const { scene } = useGLTF(`${import.meta.env.BASE_URL}spieler.v.02.glb`);
+  const { scene } = useGLTF(`${import.meta.env.BASE_URL}spieler.v.2.0.glb`);
   const modelRef = useRef<THREE.Group>(null);
 
   // Compute normalized bounding box info using useMemo so it only happens once
@@ -92,10 +92,9 @@ export const UploadedCharacter = ({
 
     if (weaponRef.current) {
       // Apply pitch (rx from camera) to the weapon so opponents see where they are aiming
-      // We invert the pitch because the weapon is rotated 180 degrees on Y
       weaponRef.current.rotation.x = THREE.MathUtils.lerp(
         weaponRef.current.rotation.x,
-        -pitch,
+        pitch,
         10 * delta,
       );
     }
@@ -170,8 +169,8 @@ export const UploadedCharacter = ({
         {hasWeapon && (
           <group
             ref={weaponRef}
-            position={[0.2, 0.8, 0.5]}
-            rotation={[0, Math.PI, 0]}
+            position={[0.55, 0.85, -0.4]}
+            rotation={[0, 0, 0]}
             scale={0.9}
           >
             <SniperWeaponModel />
@@ -302,3 +301,5 @@ export const Opponent = ({ id }: { id: string }) => {
     </group>
   );
 };
+
+useGLTF.preload(`${import.meta.env.BASE_URL}spieler.v.2.0.glb`);
