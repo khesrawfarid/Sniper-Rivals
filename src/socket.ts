@@ -154,12 +154,6 @@ class FakeSocket {
         for (const docSnap of snapshot.docs) {
           const data = docSnap.data();
           const playerCount = data.playerCount || 0;
-          const createdAt = data.createdAt || 0;
-          
-          if (playerCount <= 0 && Date.now() - createdAt > 10000) {
-            deleteDoc(doc(db, "matches", docSnap.id)).catch(() => {});
-            continue;
-          }
           
           if (playerCount < 8) {
             foundOpenRoom = docSnap.id;
@@ -205,28 +199,20 @@ class FakeSocket {
           });
         } else {
           const data = roomSnap.data();
-          const playerCount = data?.playerCount || 0;
-          const createdAt = data?.createdAt || 0;
-          
-          if (playerCount <= 0 && Date.now() - createdAt > 10000) {
-            this.isHost = true;
-            await updateDoc(roomRef, {
-              timeRemaining: 300,
-              matchEndTime: matchEndTime,
-              createdAt: Date.now()
-            });
-          } else {
-            matchEndTime = data?.matchEndTime || matchEndTime;
-            if (data?.timeRemaining !== undefined) {
-              startWithTime = data.timeRemaining;
-            }
+          if (data?.matchEndTime) {
+             matchEndTime = data.matchEndTime;
+          }
+          if (data?.timeRemaining !== undefined) {
+            startWithTime = data.timeRemaining;
           }
         }
       }
       
       let initialRenderTime = 300;
-      if (matchEndTime) {
+      if (matchEndTime && Math.abs(matchEndTime - (Date.now() + 300000)) > 5000) {
         initialRenderTime = Math.max(-15, Math.floor((matchEndTime - Date.now()) / 1000));
+        // Clamp fallback
+        if (initialRenderTime > 300) initialRenderTime = 300;
       } else if (startWithTime !== null) {
         initialRenderTime = startWithTime;
       }
