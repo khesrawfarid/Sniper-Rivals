@@ -255,12 +255,13 @@ class FakeSocket {
 
       await setDoc(playerRef, myPlayerState);
 
-      this.trigger("connect");
-
       // Init payload
       const snapForInitial = await getDoc(roomRef);
       let initialRemaining = 300;
-      if (startWithTime !== null) {
+      if (snapForInitial.exists() && snapForInitial.data().matchEndTime) {
+         const serverEndTime = snapForInitial.data().matchEndTime;
+         initialRemaining = Math.max(-15, Math.floor((serverEndTime - Date.now()) / 1000));
+      } else if (startWithTime !== null) {
         initialRemaining = startWithTime;
       } else if (snapForInitial.exists() && snapForInitial.data().timeRemaining !== undefined) {
          initialRemaining = snapForInitial.data().timeRemaining;
@@ -272,16 +273,23 @@ class FakeSocket {
         timeRemaining: initialRemaining > -15 ? initialRemaining : 0,
         players: {},
       });
+      
+      this.trigger("connect");
+      
       this.trigger("matchStarted", { players: { [this.id]: myPlayerState } });
 
       let localTimeRemaining = initialRemaining;
 
       this.unsubRoom = onSnapshot(roomRef, (snap) => {
-        if (snap.exists() && snap.data().timeRemaining !== undefined) {
-          const tr = snap.data().timeRemaining;
-          // If we drift too far, snap to authoritative time from host
-          if (tr === -15 || (!this.isHost && Math.abs(localTimeRemaining - tr) > 2)) {
-             localTimeRemaining = tr;
+        if (snap.exists()) {
+          const data = snap.data();
+          if (data.timeRemaining === -15) {
+             localTimeRemaining = -15;
+          } else if (!this.isHost && data.matchEndTime) {
+             const serverTr = Math.max(-15, Math.floor((data.matchEndTime - Date.now()) / 1000));
+             if (Math.abs(localTimeRemaining - serverTr) > 3) {
+                 localTimeRemaining = serverTr;
+             }
           }
         }
       });
@@ -304,6 +312,7 @@ class FakeSocket {
           if (this.isHost && this.currentRoom) {
             updateDoc(doc(db, "matches", this.currentRoom), {
               timeRemaining: 300,
+              matchEndTime: Date.now() + 300000,
             }).catch(() => {});
           }
 
@@ -576,11 +585,13 @@ class FakeSocket {
     if (this.currentRoom && this.isHost) {
       updateDoc(doc(db, "matches", this.currentRoom), {
         timeRemaining: -15, // Instantly trigger the round restart which happens at <= -15
+        matchEndTime: Date.now() + 300000,
       }).catch(() => {});
     } else if (this.currentRoom) {
       // For a quick fix so it "works" for anyone playing alone or host:
       updateDoc(doc(db, "matches", this.currentRoom), {
         timeRemaining: -15,
+        matchEndTime: Date.now() + 300000,
       }).catch(() => {});
     }
     // Update local state instantly so the interval catches it on next tick
