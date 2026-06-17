@@ -42,6 +42,7 @@ class FakeSocket {
   private unsubEvents: Function | null = null;
   private unsubRoom: Function | null = null;
   private timeRemainingInterval: number | null = null;
+  private loadingInterval: number | null = null;
   private isHost: boolean = false;
 
   private lastMoveTime = 0;
@@ -230,6 +231,13 @@ class FakeSocket {
         initialRenderTime = startWithTime;
       }
       this.trigger("timeUpdate", initialRenderTime);
+      
+      let tempLoadingTime = initialRenderTime;
+      if (this.loadingInterval) window.clearInterval(this.loadingInterval);
+      this.loadingInterval = window.setInterval(() => {
+        tempLoadingTime--;
+        this.trigger("timeUpdate", tempLoadingTime);
+      }, 1000);
 
       this.currentRoom = roomId;
 
@@ -287,6 +295,7 @@ class FakeSocket {
       
       this.trigger("matchStarted", { players: { [this.id]: myPlayerState } });
 
+      if (this.loadingInterval) window.clearInterval(this.loadingInterval);
       let localTimeRemaining = initialRemaining;
       
       this.trigger("timeUpdate", localTimeRemaining);
@@ -579,6 +588,7 @@ class FakeSocket {
     this.connected = false;
     if (this.cleanupInterval) clearInterval(this.cleanupInterval);
     if (this.timeRemainingInterval) clearInterval(this.timeRemainingInterval);
+    if (this.loadingInterval) clearInterval(this.loadingInterval);
     if (this.unsubPlayers) this.unsubPlayers();
     if (this.unsubEvents) this.unsubEvents();
     if (this.id && this.currentRoom) {

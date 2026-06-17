@@ -30,7 +30,7 @@ interface GameState {
   bullets: Array<{ id: string; position: [number, number, number]; direction: [number, number, number]; createdAt: number }>;
   myId: string | null;
   matchState: 'waiting' | 'playing' | 'ended';
-  timeRemaining: number;
+  timeRemaining?: number;
   intermissionTime?: number;
   winner: string | null;
   afkKicked: boolean;
@@ -102,7 +102,7 @@ export const useGameStore = create<GameState>((set) => ({
   bullets: [],
   myId: null,
   matchState: 'waiting',
-  timeRemaining: 110,
+  timeRemaining: undefined,
   winner: null,
   afkKicked: false,
   
