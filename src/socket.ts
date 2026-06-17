@@ -224,12 +224,7 @@ class FakeSocket {
         }
       }
       
-      let initialRenderTime = 300;
-      if (matchEndTime && Math.abs(matchEndTime - (Date.now() + 300000)) > 5000) {
-        initialRenderTime = Math.max(-15, Math.floor((matchEndTime - Date.now()) / 1000));
-      } else if (startWithTime !== null) {
-        initialRenderTime = startWithTime;
-      }
+      let initialRenderTime = startWithTime !== null ? startWithTime : 300;
       this.trigger("timeUpdate", initialRenderTime);
       
       let tempLoadingTime = initialRenderTime;
@@ -275,10 +270,7 @@ class FakeSocket {
       // Init payload
       const snapForInitial = await getDoc(roomRef);
       let initialRemaining = 300;
-      if (snapForInitial.exists() && snapForInitial.data().matchEndTime) {
-         const serverEndTime = snapForInitial.data().matchEndTime;
-         initialRemaining = Math.max(-15, Math.floor((serverEndTime - Date.now()) / 1000));
-      } else if (startWithTime !== null) {
+      if (startWithTime !== null) {
         initialRemaining = startWithTime;
       } else if (snapForInitial.exists() && snapForInitial.data().timeRemaining !== undefined) {
          initialRemaining = snapForInitial.data().timeRemaining;
@@ -305,10 +297,9 @@ class FakeSocket {
           const data = snap.data();
           if (data.timeRemaining === -15) {
              localTimeRemaining = -15;
-          } else if (!this.isHost && data.matchEndTime) {
-             const serverTr = Math.max(-15, Math.floor((data.matchEndTime - Date.now()) / 1000));
-             if (Math.abs(localTimeRemaining - serverTr) > 3) {
-                 localTimeRemaining = serverTr;
+          } else if (!this.isHost && data.timeRemaining !== undefined) {
+             if (Math.abs(localTimeRemaining - data.timeRemaining) > 5) {
+                 localTimeRemaining = data.timeRemaining;
              }
           }
         }
