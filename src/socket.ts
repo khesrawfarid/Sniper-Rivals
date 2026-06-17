@@ -222,6 +222,15 @@ class FakeSocket {
           }
         }
       }
+      
+      let initialRenderTime = 300;
+      if (matchEndTime && Math.abs(matchEndTime - (Date.now() + 300000)) > 5000) {
+        initialRenderTime = Math.max(-15, Math.floor((matchEndTime - Date.now()) / 1000));
+      } else if (startWithTime !== null) {
+        initialRenderTime = startWithTime;
+      }
+      this.trigger("timeUpdate", initialRenderTime);
+
       this.currentRoom = roomId;
 
       // Increment player count
@@ -279,6 +288,8 @@ class FakeSocket {
       this.trigger("matchStarted", { players: { [this.id]: myPlayerState } });
 
       let localTimeRemaining = initialRemaining;
+      
+      this.trigger("timeUpdate", localTimeRemaining);
 
       this.unsubRoom = onSnapshot(roomRef, (snap) => {
         if (snap.exists()) {

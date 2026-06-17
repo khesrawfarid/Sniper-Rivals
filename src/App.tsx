@@ -838,6 +838,7 @@ export default function App() {
   const [gameFull, setGameFull] = useState(false);
   const [showAfkModal, setShowAfkModal] = useState(false);
   const lastInputTime = React.useRef(Date.now());
+  const timeRemaining = useGameStore((state) => state.timeRemaining);
   const [customPlayOptions, setCustomPlayOptions] = useState<{
     name?: string;
     roomCode?: string;
@@ -1242,6 +1243,13 @@ export default function App() {
              <p className="text-xs font-mono text-gray-500 mt-2 text-center">
                Loading assets & synchronizing game state
              </p>
+
+             <div className="mt-8 text-center">
+               <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">Match starts in</p>
+               <p className="text-3xl font-mono font-bold text-white tracking-widest">
+                 {timeRemaining !== undefined && timeRemaining !== null ? formatTime(Math.max(0, timeRemaining)) : "--:--"}
+               </p>
+             </div>
           </div>
           
           <button
