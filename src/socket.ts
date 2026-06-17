@@ -224,7 +224,12 @@ class FakeSocket {
         }
       }
       
-      let initialRenderTime = startWithTime !== null ? startWithTime : 300;
+      let initialRenderTime = 300;
+      if (matchEndTime) {
+        initialRenderTime = Math.max(-15, Math.floor((matchEndTime - Date.now()) / 1000));
+      } else if (startWithTime !== null) {
+        initialRenderTime = startWithTime;
+      }
       this.trigger("timeUpdate", initialRenderTime);
       
       let tempLoadingTime = initialRenderTime;
@@ -270,7 +275,9 @@ class FakeSocket {
       // Init payload
       const snapForInitial = await getDoc(roomRef);
       let initialRemaining = 300;
-      if (startWithTime !== null) {
+      if (snapForInitial.exists() && snapForInitial.data().matchEndTime) {
+         initialRemaining = Math.max(-15, Math.floor((snapForInitial.data().matchEndTime - Date.now()) / 1000));
+      } else if (startWithTime !== null) {
         initialRemaining = startWithTime;
       } else if (snapForInitial.exists() && snapForInitial.data().timeRemaining !== undefined) {
          initialRemaining = snapForInitial.data().timeRemaining;
@@ -297,9 +304,11 @@ class FakeSocket {
           const data = snap.data();
           if (data.timeRemaining === -15) {
              localTimeRemaining = -15;
-          } else if (!this.isHost && data.timeRemaining !== undefined) {
-             if (Math.abs(localTimeRemaining - data.timeRemaining) > 5) {
-                 localTimeRemaining = data.timeRemaining;
+          } else if (!this.isHost && data.matchEndTime) {
+             const serverTr = Math.max(-15, Math.floor((data.matchEndTime - Date.now()) / 1000));
+             // Tighter drift correction, since matchEndTime is perfectly accurate for end of match over time
+             if (Math.abs(localTimeRemaining - serverTr) > 2) {
+                 localTimeRemaining = serverTr;
              }
           }
         }
