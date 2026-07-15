@@ -1,7 +1,7 @@
 import { Canvas } from "@react-three/fiber";
 import * as THREE from 'three';
 import { Physics } from "@react-three/rapier";
-import { Sky, Stars } from "@react-three/drei";
+import { Sky, Stars, Environment } from "@react-three/drei";
 import { Player } from "./Player";
 import { Arena } from "./Arena";
 import { Opponent } from "./Opponent";
@@ -38,6 +38,7 @@ const R3fFpsTracker = () => {
 export const GameScene = () => {
   const players = useGameStore((state) => state.players);
   const myId = useGameStore((state) => state.myId);
+  const matchState = useGameStore((state) => state.matchState);
 
   return (
     <Canvas shadows={{ type: THREE.PCFShadowMap }} camera={{ fov: 75 }} gl={{ antialias: false, powerPreference: "high-performance" }}>
@@ -53,19 +54,22 @@ export const GameScene = () => {
       <directionalLight castShadow position={[50, 80, 50]} intensity={1.2} shadow-mapSize={[2048, 2048]} shadow-camera-near={0.5} shadow-camera-far={200} shadow-camera-left={-100} shadow-camera-right={100} shadow-camera-top={100} shadow-camera-bottom={-100} shadow-bias={-0.0005} shadow-normalBias={0.04} />
       <directionalLight position={[-50, 20, -20]} intensity={0.8} color="#8a9ab0" />
       
+      <Environment preset="night" />
+
       <Physics gravity={GRAVITY}>
         <Suspense fallback={null}>
-          {myId && <Player key={`player-${myId}`} />}
+          {myId && matchState !== "lobby" && <Player key={`player-${myId}`} />}
         </Suspense>
-        <MapErrorBoundary>
+        {matchState !== "lobby" && <MapErrorBoundary>
           <Suspense fallback={null}>
             <Arena />
           </Suspense>
-        </MapErrorBoundary>
+        </MapErrorBoundary>}
         
         <Suspense fallback={null}>
           {Object.entries(players).map(([id, player]) => {
             if (id === myId) return null;
+            if (matchState === "lobby") return null;
             return <Opponent key={id} id={id} />;
           })}
         </Suspense>

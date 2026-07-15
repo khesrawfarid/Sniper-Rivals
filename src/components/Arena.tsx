@@ -3,6 +3,7 @@ import { useGLTF, useAnimations } from "@react-three/drei";
 import React, { useEffect, useRef, useMemo } from "react";
 import * as THREE from "three";
 import { socket } from "../socket";
+import { useGameStore } from "../store/gameStore";
 
 export const createJumpPadTexture = () => {
   if (typeof document === 'undefined') return null;
@@ -54,8 +55,14 @@ export const createJumpPadTexture = () => {
 };
 
 export const Arena = () => {
+  const mapId = useGameStore((s) => s.mapId) || 'default';
   const group = useRef<THREE.Group>(null);
-  const { scene, animations } = useGLTF(`${import.meta.env.BASE_URL}arenamap.v.2.1.glb`);
+  
+  const mapUrl = mapId === '1v1' 
+    ? `${import.meta.env.BASE_URL}1v1_map_optimized.glb` 
+    : `${import.meta.env.BASE_URL}arenamap.v.2.1.glb`;
+    
+  const { scene, animations } = useGLTF(mapUrl);
   const padTex = useMemo(() => createJumpPadTexture(), []);
   
   const clonedScene = useMemo(() => {
@@ -90,7 +97,7 @@ export const Arena = () => {
           }
         }
         
-        if (['Cube.005', 'Cube.006', 'Cube.007', 'Cube.008'].includes(child.name)) {
+        if (mapId === 'default' && ['Cube.005', 'Cube.006', 'Cube.007', 'Cube.008'].includes(child.name)) {
           // Lower platform for a smooth step-up
           child.position.y = 0.05; 
           child.updateMatrix();
@@ -108,7 +115,7 @@ export const Arena = () => {
       }
     });
     return clone;
-  }, [scene, padTex]);
+  }, [scene, padTex, mapId]);
 
   const { actions } = useAnimations(animations, group);
   
@@ -154,7 +161,7 @@ export const Arena = () => {
   }, [clonedScene]);
 
   return (
-    <group ref={group}>
+    <group ref={group} key={mapId}>
       <RigidBody type="fixed" colliders="trimesh">
         <primitive object={clonedScene} name="arena" />
       </RigidBody>
@@ -162,7 +169,7 @@ export const Arena = () => {
       {/* Invisible Boundary Walls (Removed as requested) */}
 
       {/* Jump pad visuals and sensors */}
-      {[
+      {mapId === 'default' && [
         [-0.04906, 0.5, 2.4572],
         [-0.04906, 0.5, -2.9699],
         [-2.7311, 0.5, -0.3312],
@@ -196,3 +203,5 @@ export const Arena = () => {
 };
 
 
+useGLTF.preload(`${import.meta.env.BASE_URL}arenamap.v.2.1.glb`);
+useGLTF.preload(`${import.meta.env.BASE_URL}1v1_map_optimized.glb`);

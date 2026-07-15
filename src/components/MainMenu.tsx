@@ -244,7 +244,7 @@ function CustomizationCamera({ focusedPart, controlsRef }: { focusedPart: 'skin'
   return null;
 }
 
-export const MainMenu = ({ onPlay, playerName }: { onPlay: (options?: { name?: string; roomCode?: string }) => void, playerName?: string | null }) => {
+export const MainMenu = ({ onPlay, playerName, onNameChange }: { onPlay: (options?: { name?: string; roomCode?: string; mapId?: string; maxPlayers?: number }) => void, playerName?: string | null, onNameChange?: (name: string) => void }) => {
   const [activeMenu, setActiveMenu] = useState('play');
   const [hoveredMenu, setHoveredMenu] = useState<string | null>(null);
   const [activeSettingsTab, setActiveSettingsTab] = useState('AUDIO');
@@ -260,14 +260,15 @@ export const MainMenu = ({ onPlay, playerName }: { onPlay: (options?: { name?: s
   const [joinError, setJoinError] = useState('');
   const [isCheckingRoom, setIsCheckingRoom] = useState(false);
 
+  const [selectedMap, setSelectedMap] = useState<'default' | '1v1'>('default');
+  const [maxPlayers, setMaxPlayers] = useState<2 | 4 | 8>(8);
   const [botCount, setBotCount] = useState(5);
 
   const generateCode = () => {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     let code = '';
     for (let i = 0; i < 4; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
-    setRoomCode(code);
-    setPopupMode('create');
+    onPlay({ roomCode: code });
   };
   const { settings, updateSettings, ping } = useGameStore();
 
@@ -320,7 +321,6 @@ export const MainMenu = ({ onPlay, playerName }: { onPlay: (options?: { name?: s
         title="Customize Character"
       >
         <div className="flex flex-col text-right">
-          <span className="text-[10px] text-blue-500/80 font-black uppercase tracking-[0.2em] leading-none mb-1">OPERATIVE</span>
           <span className="text-lg font-black text-white uppercase tracking-wider leading-none shadow-black drop-shadow-md">{playerName || 'UNKNOWN'}</span>
         </div>
         <div className="w-12 h-12 rounded-lg bg-blue-900/40 border-2 border-blue-500/30 flex items-center justify-center relative shadow-[inset_0_0_15px_rgba(59,130,246,0.2)] overflow-hidden">
@@ -392,6 +392,20 @@ export const MainMenu = ({ onPlay, playerName }: { onPlay: (options?: { name?: s
                  <h2 className="text-2xl font-black italic tracking-widest text-blue-400 uppercase mb-8">Customization</h2>
                  
                  <div className="space-y-6">
+                    <div>
+                       <label className="block text-xs font-black text-gray-500 uppercase tracking-[0.2em] mb-2 px-1">Name</label>
+                       <input 
+                         type="text" 
+                         value={playerName || ''}
+                         onChange={(e) => onNameChange && onNameChange(e.target.value)}
+                         placeholder="Enter your name"
+                         className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white font-bold outline-none focus:border-blue-500 focus:bg-blue-900/20 transition-all uppercase"
+                         maxLength={15}
+                       />
+                    </div>
+                    
+                    <div className="h-px bg-white/5 my-2"></div>
+
                     <div onMouseEnter={() => setFocusedPart('outfit')}>
                        <label className="block text-xs font-black text-gray-500 uppercase tracking-[0.2em] mb-2 px-1">Outfit Color</label>
                        <div className="flex items-center gap-4">
@@ -862,8 +876,28 @@ export const MainMenu = ({ onPlay, playerName }: { onPlay: (options?: { name?: s
                       </div>
                       <p className="text-xs text-gray-400">Share this code with your friend to play together.</p>
                     </div>
+
+                    <div className="text-left mt-4 mb-4">
+                      <div className="text-xs font-black text-gray-500 uppercase tracking-widest mb-2 px-1">Select Map</div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setSelectedMap('default')}
+                          className={`flex-1 py-3 rounded-xl font-bold text-sm uppercase transition-all border ${selectedMap === 'default' ? 'bg-blue-600/20 border-blue-500 text-blue-400' : 'bg-black/40 border-white/10 text-gray-400 hover:bg-white/5'}`}
+                        >
+                          Standard Map
+                        </button>
+                        <button
+                          onClick={() => setSelectedMap('1v1')}
+                          className={`flex-1 py-3 rounded-xl font-bold text-sm uppercase transition-all border flex flex-col items-center justify-center ${selectedMap === '1v1' ? 'bg-blue-600/20 border-blue-500 text-blue-400' : 'bg-black/40 border-white/10 text-gray-400 hover:bg-white/5'}`}
+                        >
+                          <span>1v1 Map</span>
+                          <span className="text-[10px] opacity-70 mt-1">Max 2 Players</span>
+                        </button>
+                      </div>
+                    </div>
+
                     <button 
-                      onClick={() => onPlay({ name: playerName || undefined, roomCode: roomCode })}
+                      onClick={() => onPlay({ name: playerName || undefined, roomCode: roomCode, mapId: selectedMap, maxPlayers: selectedMap === '1v1' ? 2 : 8 })}
                       className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-4 rounded-xl shadow-[0_0_20px_rgba(37,99,235,0.3)] transition-all uppercase"
                     >
                       Start Lobby

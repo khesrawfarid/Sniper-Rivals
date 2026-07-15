@@ -1,6 +1,6 @@
 {
-  "name": "",
-  "description": "",
+  "name": "Sniper Rivals",
+  "description": "A multiplayer 3D sniper game built with React Three Fiber and Firebase.",
   "requestFramePermissions": [],
-  "majorCapabilities": []
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

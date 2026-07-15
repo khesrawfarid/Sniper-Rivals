@@ -2,7 +2,7 @@ import React, { useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 
-export const RobotModel = ({ movingRef }: { movingRef: React.MutableRefObject<boolean> }) => {
+export const RobotModel = ({ movingRef, scale = [0.8, 0.8, 0.8] }: { movingRef: React.MutableRefObject<boolean>, scale?: [number, number, number] }) => {
   const group = useRef<THREE.Group>(null);
   const leftArm = useRef<THREE.Group>(null);
   const rightArm = useRef<THREE.Group>(null);
@@ -22,141 +22,134 @@ export const RobotModel = ({ movingRef }: { movingRef: React.MutableRefObject<bo
     }
   });
 
-  // Materials
-  const whitePlastic = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.3, metalness: 0.1 });
-  const darkMetal = new THREE.MeshStandardMaterial({ color: '#222222', roughness: 0.6, metalness: 0.8 });
-  const chromeMetal = new THREE.MeshStandardMaterial({ color: '#888888', roughness: 0.2, metalness: 0.9 });
-  const glowBlue = new THREE.MeshStandardMaterial({ color: '#00ffff', emissive: '#00ccff', emissiveIntensity: 2, toneMapped: false });
-  const blackGlass = new THREE.MeshStandardMaterial({ color: '#050505', roughness: 0.1, metalness: 0.8 });
+  const bodyMaterial = <meshStandardMaterial color="#ffffff" metalness={0.6} roughness={0.2} />;
+  const jointMaterial = <meshStandardMaterial color="#666666" metalness={0.8} roughness={0.4} />;
+  const accentMaterial = <meshStandardMaterial color="#aaaaaa" metalness={0.9} roughness={0.1} />;
+  const eyeMaterial = <meshStandardMaterial color="#ffd700" emissive="#ffd700" emissiveIntensity={2} toneMapped={false} />;
 
   return (
-    <group ref={group} position={[0, -0.85, 0]} scale={[0.8, 0.8, 0.8]}>
+    <group ref={group} position={[0, -0.85, 0]} scale={scale}>
       {/* Head Group */}
       <group position={[0, 1.8, 0]}>
         {/* Main Head */}
-        <mesh material={whitePlastic} castShadow>
+        <mesh castShadow receiveShadow>
           <sphereGeometry args={[0.35, 32, 32]} />
+          {bodyMaterial}
         </mesh>
         
-        {/* Visor */}
-        <mesh material={blackGlass} position={[0, 0.05, -0.12]} scale={[1, 0.6, 1]} rotation={[0, Math.PI, 0]}>
-          <sphereGeometry args={[0.26, 32, 32, 0, Math.PI, 0, Math.PI / 2.5]} />
-        </mesh>
-
-        {/* Glowing Eyes */}
-        <mesh material={glowBlue} position={[-0.1, 0.05, -0.32]}>
-          <circleGeometry args={[0.04, 16]} />
-        </mesh>
-        <mesh material={glowBlue} position={[0.1, 0.05, -0.32]}>
-          <circleGeometry args={[0.04, 16]} />
+        {/* Visor Area */}
+        <mesh position={[0, 0.05, -0.12]} castShadow>
+          <sphereGeometry args={[0.26, 32, 32]} />
+          {eyeMaterial}
         </mesh>
 
         {/* Earpieces */}
-        <mesh material={chromeMetal} position={[-0.34, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <mesh position={[-0.34, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
           <cylinderGeometry args={[0.15, 0.15, 0.05, 32]} />
+          {accentMaterial}
         </mesh>
-        <mesh material={glowBlue} position={[-0.37, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-          <ringGeometry args={[0.1, 0.12, 32]} />
-        </mesh>
-        
-        <mesh material={chromeMetal} position={[0.34, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <mesh position={[0.34, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
           <cylinderGeometry args={[0.15, 0.15, 0.05, 32]} />
-        </mesh>
-        <mesh material={glowBlue} position={[0.37, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-          <ringGeometry args={[0.1, 0.12, 32]} />
+          {accentMaterial}
         </mesh>
 
         {/* Neck */}
-        <mesh material={darkMetal} position={[0, -0.3, 0]}>
-          <cylinderGeometry args={[0.1, 0.15, 0.2, 16]} />
+        <mesh position={[0, -0.3, 0]} castShadow>
+          <cylinderGeometry args={[0.1, 0.15, 0.2, 32]} />
+          {jointMaterial}
         </mesh>
       </group>
 
       {/* Torso */}
-      <mesh material={whitePlastic} position={[0, 1.1, 0]} castShadow>
-        <capsuleGeometry args={[0.3, 0.5, 16, 16]} />
+      <mesh position={[0, 1.1, 0]} castShadow receiveShadow>
+        <capsuleGeometry args={[0.3, 0.5, 32, 32]} />
+        {bodyMaterial}
       </mesh>
-      
-      {/* Torso core accent */}
-      <mesh material={glowBlue} position={[0, 1.1, -0.3]} rotation={[Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[0.08, 16]} />
+
+      {/* Torso Core Accent */}
+      <mesh position={[0, 1.1, -0.3]} castShadow>
+        <sphereGeometry args={[0.08, 16, 16]} />
+        {eyeMaterial}
       </mesh>
 
       {/* Left Arm */}
       <group ref={leftArm} position={[-0.45, 1.4, 0]}>
         {/* Shoulder */}
-        <mesh material={chromeMetal} castShadow>
-          <sphereGeometry args={[0.15, 16, 16]} />
+        <mesh castShadow>
+          <sphereGeometry args={[0.15, 32, 32]} />
+          {accentMaterial}
         </mesh>
         {/* Upper Arm */}
-        <mesh material={whitePlastic} position={[0, -0.25, 0]} castShadow>
-          <cylinderGeometry args={[0.08, 0.08, 0.4, 16]} />
+        <mesh position={[0, -0.25, 0]} castShadow>
+          <cylinderGeometry args={[0.08, 0.08, 0.4, 32]} />
+          {bodyMaterial}
         </mesh>
         {/* Elbow */}
-        <mesh material={darkMetal} position={[0, -0.5, 0]} castShadow>
-          <sphereGeometry args={[0.1, 16, 16]} />
+        <mesh position={[0, -0.5, 0]} castShadow>
+          <sphereGeometry args={[0.1, 32, 32]} />
+          {jointMaterial}
         </mesh>
         {/* Lower Arm */}
-        <mesh material={chromeMetal} position={[0, -0.75, 0]} castShadow>
-          <cylinderGeometry args={[0.07, 0.06, 0.4, 16]} />
+        <mesh position={[0, -0.75, 0]} castShadow>
+          <cylinderGeometry args={[0.07, 0.06, 0.4, 32]} />
+          {accentMaterial}
         </mesh>
         {/* Hand */}
-        <mesh material={darkMetal} position={[0, -1.0, 0]} castShadow>
+        <mesh position={[0, -1.0, 0]} castShadow>
           <boxGeometry args={[0.1, 0.15, 0.15]} />
+          {jointMaterial}
         </mesh>
       </group>
 
-      {/* Right Arm (Aiming forward to shoot) */}
+      {/* Right Arm (Aiming Forward) */}
       <group ref={rightArm} position={[0.45, 1.4, 0]}>
         {/* Shoulder */}
-        <mesh material={chromeMetal} castShadow>
-          <sphereGeometry args={[0.15, 16, 16]} />
+        <mesh castShadow>
+          <sphereGeometry args={[0.15, 32, 32]} />
+          {accentMaterial}
         </mesh>
-        
-        {/* The rest of the arm pointing forward */}
         <group rotation={[Math.PI / 2 - 0.1, 0, 0]}>
           {/* Upper Arm */}
-          <mesh material={whitePlastic} position={[0, -0.25, 0]} castShadow>
-            <cylinderGeometry args={[0.08, 0.08, 0.4, 16]} />
+          <mesh position={[0, -0.25, 0]} castShadow>
+            <cylinderGeometry args={[0.08, 0.08, 0.4, 32]} />
+            {bodyMaterial}
           </mesh>
           {/* Elbow */}
-          <mesh material={darkMetal} position={[0, -0.5, 0]} castShadow>
-            <sphereGeometry args={[0.1, 16, 16]} />
+          <mesh position={[0, -0.5, 0]} castShadow>
+            <sphereGeometry args={[0.1, 32, 32]} />
+            {jointMaterial}
           </mesh>
-          {/* Lower Arm */}
           <group position={[0, -0.5, 0]}>
-            <mesh material={chromeMetal} position={[0, -0.25, 0]} castShadow>
-              <cylinderGeometry args={[0.07, 0.06, 0.4, 16]} />
+            {/* Lower Arm */}
+            <mesh position={[0, -0.25, 0]} castShadow>
+              <cylinderGeometry args={[0.07, 0.06, 0.4, 32]} />
+              {accentMaterial}
             </mesh>
             {/* Hand */}
-            <mesh material={darkMetal} position={[0, -0.5, 0]} castShadow>
+            <mesh position={[0, -0.5, 0]} castShadow>
               <boxGeometry args={[0.1, 0.15, 0.15]} />
-            </mesh>
-            {/* Glowing Blaster inside the hand */}
-            <mesh material={glowBlue} position={[0, -0.58, 0]}>
-              <sphereGeometry args={[0.05, 16, 16]} />
+              {jointMaterial}
             </mesh>
           </group>
         </group>
       </group>
 
       {/* Pelvis */}
-      <mesh material={darkMetal} position={[0, 0.75, 0]} castShadow>
-        <cylinderGeometry args={[0.2, 0.2, 0.2, 16]} />
+      <mesh position={[0, 0.65, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[0.25, 0.25, 0.3, 32]} />
+        {jointMaterial}
       </mesh>
 
-      {/* Hover Thruster (Instead of Legs) */}
-      <mesh material={darkMetal} position={[0, 0.55, 0]} castShadow>
-        <cylinderGeometry args={[0.15, 0.25, 0.2, 16]} />
+      {/* Hover Thruster (Replaces Legs) */}
+      <mesh position={[0, 0.35, 0]} castShadow>
+        <cylinderGeometry args={[0.15, 0.25, 0.3, 32]} />
+        {jointMaterial}
       </mesh>
-      <mesh material={glowBlue} position={[0, 0.44, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[0.1, 0.2, 16]} />
-      </mesh>
-      
-      {/* Thruster Flame/Glow Effect */}
-      <mesh material={glowBlue} position={[0, 0.40, 0]} castShadow>
-        <capsuleGeometry args={[0.15, 0.05, 16, 16]} />
+      <mesh position={[0, 0.15, 0]}>
+        <sphereGeometry args={[0.18, 32, 32]} />
+        {eyeMaterial}
       </mesh>
     </group>
   );
 };
+

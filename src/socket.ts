@@ -17,18 +17,25 @@ import {
 } from "firebase/firestore";
 
 const SAFE_SPAWNS = [
-  { x: -15, y: 10, z: -15 },
-  { x: 15, y: 10, z: 15 },
-  { x: -15, y: 10, z: 15 },
-  { x: 15, y: 10, z: -15 },
-  { x: 0, y: 10, z: 20 },
-  { x: 0, y: 10, z: -20 },
-  { x: 20, y: 10, z: 0 },
-  { x: -20, y: 10, z: 0 },
+  { x: -15, y: 10, z: -15, ry: 0 },
+  { x: 15, y: 10, z: 15, ry: 0 },
+  { x: -15, y: 10, z: 15, ry: 0 },
+  { x: 15, y: 10, z: -15, ry: 0 },
+  { x: 0, y: 10, z: 20, ry: 0 },
+  { x: 0, y: 10, z: -20, ry: 0 },
+  { x: 20, y: 10, z: 0, ry: 0 },
+  { x: -20, y: 10, z: 0, ry: 0 },
 ];
 
-export const getRandomSpawn = () =>
-  SAFE_SPAWNS[Math.floor(Math.random() * SAFE_SPAWNS.length)];
+const SAFE_SPAWNS_1V1 = [
+  { x: 0, y: 2, z: 5, ry: 0 },        // Looks at -Z (center)
+  { x: 0, y: 2, z: -5, ry: Math.PI }  // Looks at +Z (center)
+];
+
+export const getRandomSpawn = (mapId: string = 'default') => {
+  const spawns = mapId === '1v1' ? SAFE_SPAWNS_1V1 : SAFE_SPAWNS;
+  return spawns[Math.floor(Math.random() * spawns.length)];
+};
 
 class FakeSocket {
   public id: string = "";
@@ -46,6 +53,8 @@ class FakeSocket {
   private isHost: boolean = false;
 
   private lastMoveTime = 0;
+  private mapId: string = "default";
+  matchDuration: number = 300;
 
   constructor() {}
 
@@ -66,7 +75,13 @@ class FakeSocket {
       if (now - this.lastMoveTime < 100) return; // throttle to 10hz
       this.lastMoveTime = now;
 
-      const playerRef = doc(db, "matches", this.currentRoom, "players", this.id);
+      const playerRef = doc(
+        db,
+        "matches",
+        this.currentRoom,
+        "players",
+        this.id,
+      );
       updateDoc(playerRef, {
         ...data,
         lastUpdate: now,
@@ -109,7 +124,7 @@ class FakeSocket {
         shooterId: this.id,
         victimId: data.id,
         headshot: data.headshot,
-        damage: 100,
+        damage: data.damage ?? 100,
         x: 0,
         y: 0,
         z: 0,
@@ -121,7 +136,13 @@ class FakeSocket {
     } else if (event === "ping") {
       // Simulate real cloud latency (15-40ms) or measure actual firestore latency
       // Use a stable fake ping based on the user's ID
-      const stablePing = 20 + ((Array.from(this.id).reduce((acc, char) => acc + char.charCodeAt(0), 0)) % 15);
+      const stablePing =
+        20 +
+        (Array.from(this.id).reduce(
+          (acc, char) => acc + char.charCodeAt(0),
+          0,
+        ) %
+          15);
       setTimeout(() => {
         this.trigger("pong", data);
       }, stablePing);
@@ -154,7 +175,7 @@ class FakeSocket {
         for (const docSnap of snapshot.docs) {
           const data = docSnap.data();
           const playerCount = data.playerCount || 0;
-          
+
           if (playerCount < 8) {
             foundOpenRoom = docSnap.id;
             matchEndTime = data.matchEndTime || matchEndTime;
@@ -178,6 +199,7 @@ class FakeSocket {
             state: "playing",
             playerCount: 0,
             timeRemaining: 300,
+            matchDuration: 300,
             matchEndTime: matchEndTime,
             createdAt: Date.now(),
           });
@@ -188,36 +210,54 @@ class FakeSocket {
         const roomSnap = await getDoc(roomRef);
         if (!roomSnap.exists()) {
           this.isHost = true;
+          this.mapId = this.io.opts.query.mapId || "default";
           await setDoc(roomRef, {
             roomCode: roomId,
             type: "CUSTOM",
-            state: "playing",
+            state: "lobby",
             playerCount: 0,
+            maxPlayers: Number(this.io.opts.query.maxPlayers) || 8,
             timeRemaining: 300,
+            matchDuration: 300,
             matchEndTime: matchEndTime,
             createdAt: Date.now(),
+            mapId: this.mapId,
           });
         } else {
-          const data = roomSnap.data();
+          const data = roomSnap.data() as any;
+          this.mapId = data?.mapId || 'default';
+          
+          const maxAllowed = data?.maxPlayers || (this.mapId === '1v1' ? 2 : 8);
+          if ((data?.playerCount || 0) >= maxAllowed) {
+            this.trigger("gameFull");
+            return;
+          }
+          
           if (data?.matchEndTime) {
-             matchEndTime = data.matchEndTime;
+            matchEndTime = data.matchEndTime;
           }
           if (data?.timeRemaining !== undefined) {
             startWithTime = data.timeRemaining;
           }
         }
       }
-      
+
       let initialRenderTime = 300;
-      if (matchEndTime && Math.abs(matchEndTime - (Date.now() + 300000)) > 5000) {
-        initialRenderTime = Math.max(-15, Math.floor((matchEndTime - Date.now()) / 1000));
+      if (
+        matchEndTime &&
+        Math.abs(matchEndTime - (Date.now() + 300000)) > 5000
+      ) {
+        initialRenderTime = Math.max(
+          -15,
+          Math.floor((matchEndTime - Date.now()) / 1000),
+        );
         // Clamp fallback
         if (initialRenderTime > 300) initialRenderTime = 300;
       } else if (startWithTime !== null) {
         initialRenderTime = startWithTime;
       }
       this.trigger("timeUpdate", initialRenderTime);
-      
+
       let tempLoadingTime = initialRenderTime;
       if (this.loadingInterval) window.clearInterval(this.loadingInterval);
       this.loadingInterval = window.setInterval(() => {
@@ -236,13 +276,13 @@ class FakeSocket {
 
       // Add self to players
       const playerRef = doc(db, "matches", roomId, "players", this.id);
-      const spawn = getRandomSpawn();
+      const spawn = getRandomSpawn(this.mapId);
       const myPlayerState = {
         x: spawn.x,
         y: spawn.y,
         z: spawn.z,
         rx: 0,
-        ry: 0,
+        ry: spawn.ry || 0,
         isMoving: false,
         isSprinting: false,
         isCrouching: false,
@@ -260,69 +300,119 @@ class FakeSocket {
 
       // Init payload
       const snapForInitial = await getDoc(roomRef);
+      const snapData = snapForInitial.exists()
+        ? (snapForInitial.data() as any)
+        : null;
       let initialRemaining = 300;
-      if (snapForInitial.exists() && snapForInitial.data().matchEndTime) {
-         initialRemaining = Math.max(-15, Math.floor((snapForInitial.data().matchEndTime - Date.now()) / 1000));
+      if (snapData && snapData.matchEndTime) {
+        initialRemaining = Math.max(
+          -15,
+          Math.floor((snapData.matchEndTime - Date.now()) / 1000),
+        );
       } else if (startWithTime !== null) {
         initialRemaining = startWithTime;
-      } else if (snapForInitial.exists() && snapForInitial.data().timeRemaining !== undefined) {
-         initialRemaining = snapForInitial.data().timeRemaining;
+      } else if (snapData && snapData.timeRemaining !== undefined) {
+        initialRemaining = snapData.timeRemaining;
       }
 
+      this.mapId = snapData?.mapId || this.mapId;
+      this.matchDuration = snapData?.matchDuration || 300;
+      let currentMatchState = snapData?.state || "playing";
+
       this.trigger("init", {
+        mapId: this.mapId,
+        matchDuration: this.matchDuration,
         id: this.id,
-        matchState: "playing",
+        matchState: currentMatchState,
         timeRemaining: initialRemaining > -15 ? initialRemaining : 0,
-        players: {},
+        players: { [this.id]: myPlayerState },
+        spawn: spawn,
+        isHost: this.isHost,
       });
-      
+
       this.trigger("connect");
-      
-      this.trigger("matchStarted", { players: { [this.id]: myPlayerState } });
+
+      if (currentMatchState === "playing") {
+        this.trigger("matchStarted", { players: { [this.id]: myPlayerState } });
+      }
 
       if (this.loadingInterval) window.clearInterval(this.loadingInterval);
       let localTimeRemaining = initialRemaining;
-      
       this.trigger("timeUpdate", localTimeRemaining);
 
       this.unsubRoom = onSnapshot(roomRef, (snap) => {
         if (snap.exists()) {
           const data = snap.data();
+          if ((data.mapId && data.mapId !== this.mapId) || (data.matchDuration && data.matchDuration !== this.matchDuration)) {
+            this.mapId = data.mapId;
+            if (data.matchDuration) this.matchDuration = data.matchDuration;
+            this.trigger("gameState", { mapId: this.mapId, matchDuration: this.matchDuration });
+          }
+          if (data.state && data.state !== currentMatchState) {
+            currentMatchState = data.state;
+            this.trigger("gameState", { matchState: data.state });
+            // If it transitioned to playing, reset time and matchEndTime
+            if (data.state === 'playing') {
+               if (data.matchEndTime) {
+                 localTimeRemaining = Math.max(-15, Math.floor((data.matchEndTime - Date.now()) / 1000));
+               }
+               
+               // We also need to trigger matchStarted so App.tsx resets player state
+               getDocs(collection(db, "matches", roomId, "players")).then(playersSnap => {
+                 const playersMap: any = {};
+                 playersSnap.docs.forEach(d => {
+                   playersMap[d.id] = d.data();
+                 });
+                 this.trigger("matchStarted", { players: playersMap });
+               }).catch(console.error);
+            }
+          }
+
           if (data.timeRemaining === -15) {
-             localTimeRemaining = -15;
+            localTimeRemaining = -15;
           } else if (!this.isHost && data.matchEndTime) {
-             const serverTr = Math.max(-15, Math.floor((data.matchEndTime - Date.now()) / 1000));
-             // Tighter drift correction, since matchEndTime is perfectly accurate for end of match over time
-             if (Math.abs(localTimeRemaining - serverTr) > 2) {
-                 localTimeRemaining = serverTr;
-             }
+            const serverTr = Math.max(
+              -15,
+              Math.floor((data.matchEndTime - Date.now()) / 1000),
+            );
+            // Tighter drift correction, since matchEndTime is perfectly accurate for end of match over time
+            if (Math.abs(localTimeRemaining - serverTr) > 2) {
+              localTimeRemaining = serverTr;
+            }
           }
         }
       });
 
       if (this.timeRemainingInterval) clearInterval(this.timeRemainingInterval);
       this.timeRemainingInterval = window.setInterval(() => {
+        if (currentMatchState === "lobby") return;
+
         if (this.currentRoom !== "TRAINING_GROUND") {
           localTimeRemaining = localTimeRemaining - 1;
         }
 
         // Host pushes the current true time every 5 seconds
-        if (this.isHost && localTimeRemaining > 0 && localTimeRemaining % 5 === 0 && this.currentRoom) {
+        if (
+          this.isHost &&
+          localTimeRemaining > 0 &&
+          localTimeRemaining % 5 === 0 &&
+          this.currentRoom
+        ) {
           updateDoc(doc(db, "matches", this.currentRoom), {
             timeRemaining: localTimeRemaining,
           }).catch(() => {});
         }
 
         if (localTimeRemaining <= -15) {
-          localTimeRemaining = 300;
+          localTimeRemaining = this.matchDuration;
           if (this.isHost && this.currentRoom) {
             updateDoc(doc(db, "matches", this.currentRoom), {
-              timeRemaining: 300,
-              matchEndTime: Date.now() + 300000,
+              timeRemaining: this.matchDuration,
+              matchEndTime: Date.now() + (this.matchDuration * 1000),
             }).catch(() => {});
           }
 
-          const spawn = getRandomSpawn();
+          const spawn = getRandomSpawn(this.mapId);
           setDoc(
             doc(db, "matches", roomId, "players", this.id),
             {
@@ -338,26 +428,29 @@ class FakeSocket {
           ).catch(() => {});
 
           import("./store/gameStore").then(({ useGameStore }) => {
-            useGameStore.getState().updateGameState({ matchState: "playing" });
-            useGameStore
-              .getState()
-              .setLocalState({
+            const currentWeapon = useGameStore.getState().currentWeapon;
+            import("./config/weapons").then(({ WEAPONS }) => {
+              useGameStore.getState().updateGameState({ matchState: "playing" });
+              useGameStore.getState().setLocalState({
                 health: 100,
-                ammo: 5,
-                teleportTo: [spawn.x, spawn.y, spawn.z],
+                ammo: WEAPONS[currentWeapon].magSize,
+                teleportTo: [spawn.x, spawn.y, spawn.z, spawn.ry || 0],
               });
+            });
           });
         }
 
         import("./store/gameStore").then(({ useGameStore }) => {
-          useGameStore
-            .getState()
-            .updateGameState({
-              timeRemaining: localTimeRemaining,
-              intermissionTime:
-                localTimeRemaining <= 0 ? 15 + localTimeRemaining : 0,
-            });
-          if (localTimeRemaining <= 0 && localTimeRemaining > -15 && this.currentRoom !== "TRAINING_GROUND") {
+          useGameStore.getState().updateGameState({
+            timeRemaining: localTimeRemaining,
+            intermissionTime:
+              localTimeRemaining <= 0 ? 15 + localTimeRemaining : 0,
+          });
+          if (
+            localTimeRemaining <= 0 &&
+            localTimeRemaining > -15 &&
+            this.currentRoom !== "TRAINING_GROUND"
+          ) {
             useGameStore.getState().updateGameState({ matchState: "ended" });
           }
         });
@@ -372,6 +465,7 @@ class FakeSocket {
         });
         playerIds.sort();
         this.isHost = playerIds.length > 0 && playerIds[0] === this.id;
+        this.trigger("gameState", { isHost: this.isHost });
 
         snap.docChanges().forEach((change) => {
           const docId = change.doc.id;
@@ -502,7 +596,7 @@ class FakeSocket {
 
                   // Schedule respawn after 3s
                   setTimeout(() => {
-                    const spawn = getRandomSpawn();
+                    const spawn = getRandomSpawn(this.mapId);
                     const safeX = spawn.x;
                     const safeZ = spawn.z;
 
@@ -588,24 +682,51 @@ class FakeSocket {
     this.trigger("disconnect");
   }
 
+  startMatch() {
+    if (this.currentRoom && this.isHost) {
+      updateDoc(doc(db, "matches", this.currentRoom), {
+        state: "playing",
+        timeRemaining: this.matchDuration,
+        matchEndTime: Date.now() + (this.matchDuration * 1000),
+      }).catch(() => {});
+    }
+  }
+
+  changeTime(duration: number) {
+    if (this.currentRoom && this.isHost) {
+      updateDoc(doc(db, "matches", this.currentRoom), {
+        matchDuration: duration
+      }).catch(() => {});
+    }
+  }
+
+  changeMap(mapId: string) {
+    if (this.currentRoom && this.isHost) {
+      updateDoc(doc(db, "matches", this.currentRoom), {
+        mapId: mapId,
+        maxPlayers: mapId === '1v1' ? 2 : 8
+      }).catch(() => {});
+    }
+  }
+
   skipIntermission() {
     if (this.currentRoom && this.isHost) {
       updateDoc(doc(db, "matches", this.currentRoom), {
         timeRemaining: -15, // Instantly trigger the round restart which happens at <= -15
-        matchEndTime: Date.now() + 300000,
+        matchEndTime: Date.now() + (this.matchDuration * 1000),
       }).catch(() => {});
     } else if (this.currentRoom) {
       // For a quick fix so it "works" for anyone playing alone or host:
       updateDoc(doc(db, "matches", this.currentRoom), {
         timeRemaining: -15,
-        matchEndTime: Date.now() + 300000,
+        matchEndTime: Date.now() + (this.matchDuration * 1000),
       }).catch(() => {});
     }
     // Update local state instantly so the interval catches it on next tick
     import("./store/gameStore").then(({ useGameStore }) => {
-      useGameStore.getState().updateGameState({ 
-        timeRemaining: -15, 
-        intermissionTime: 0 
+      useGameStore.getState().updateGameState({
+        timeRemaining: -15,
+        intermissionTime: 0,
       });
     });
   }

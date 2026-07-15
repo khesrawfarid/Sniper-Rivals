@@ -8,12 +8,11 @@ import { playSound } from "../utils/audio";
 import { SniperWeapon } from "./SniperWeapon";
 import { MuzzleFlash } from "./Effects";
 import { useFPSCamera } from "../hooks/useFPSCamera";
+import { WEAPONS } from "../config/weapons";
 
 const BASE_SPEED = 4;
 const SPRINT_SPEED = 7;
 const JUMP_FORCE = 7;
-const FIRE_RATE_MS = 1500;
-const RELOAD_MS = 2500;
 
 const pressedKeys = new Set<string>();
 
@@ -37,13 +36,16 @@ export const Player = ({ position = DEFAULT_POSITION }: { position?: [number, nu
   
   const lastEmitTime = useRef(0);
   const lastFireTime = useRef(0);
+  const isFiring = useRef(false);
   
   const myId = useGameStore((state) => state.myId);
-  const { ammo, matchState, health, showSettings } = useGameStore();
+  const { ammo, matchState, health, showSettings, currentWeapon, mapId } = useGameStore();
   const [isMoving, setIsMoving] = useState(false);
   const [flash, setFlash] = useState(false);
+  
+  const currentColliderArgs: [number, number] = mapId === '1v1' ? [0.4, 0.2] : COLLIDER_ARGS;
 
-  const { updateCamera, triggerRecoil, euler } = useFPSCamera();
+  const { updateCamera, triggerRecoil, euler, targetEuler } = useFPSCamera();
 
   // Weapon sway specific
   const mouseDelta = useRef({ x: 0, y: 0 });
@@ -63,6 +65,166 @@ export const Player = ({ position = DEFAULT_POSITION }: { position?: [number, nu
   const prevGrounded = useRef(true);
   const lastStepTime = useRef(0);
 
+  const fireShot = () => {
+    if (document.pointerLockElement !== document.body) return;
+    const store = useGameStore.getState();
+    if (store.matchState !== 'playing' || store.health <= 0) return;
+
+    const now = Date.now();
+    const cfg = WEAPONS[store.currentWeapon];
+
+    if (store.isReloading || now - lastFireTime.current < cfg.fireRateMs || store.ammo <= 0) {
+      if (store.ammo <= 0 && !store.isReloading) {
+        playSound('reload');
+        store.setLocalState({ isReloading: true, isScoped: false });
+        setTimeout(() => {
+          const liveStore = useGameStore.getState();
+          useGameStore.getState().setLocalState({ ammo: WEAPONS[liveStore.currentWeapon].magSize, isReloading: false });
+        }, cfg.reloadMs);
+      }
+      return;
+    }
+
+    lastFireTime.current = now;
+    store.setLocalState({ ammo: store.ammo - 1, isScoped: store.isScoped });
+    playSound('shoot');
+    setFlash(true);
+    setTimeout(() => setFlash(false), 50);
+
+    triggerRecoil(store.isScoped, cfg.recoil);
+
+    if (store.ammo - 1 <= 0) {
+      setTimeout(() => {
+        if (useGameStore.getState().health > 0) {
+          playSound('reload');
+          useGameStore.getState().setLocalState({ isReloading: true });
+          setTimeout(() => {
+            const liveStore = useGameStore.getState();
+            useGameStore.getState().setLocalState({ ammo: WEAPONS[liveStore.currentWeapon].magSize, isReloading: false });
+          }, cfg.reloadMs);
+        }
+      }, 500);
+    }
+
+    const baseDir = new THREE.Vector3();
+    camera.getWorldDirection(baseDir);
+    // Hitscan raycasting always starts from the exact camera centre so it
+    // lines up with the crosshair – gameplay stays 100 % accurate.
+    const pos = camera.position.clone();
+
+    // ── Visual bullet origin: barrel tip in world space ────────────────────
+    // The weapon is held at (right=0.30, down=-0.30, fwd=-0.50) from camera,
+    // and the barrel tip is ~0.81 units forward of the weapon group centre.
+    // We push only 0.55 forward so bullets can't clip into nearby walls.
+    const camRight = new THREE.Vector3()
+      .crossVectors(baseDir, new THREE.Vector3(0, 1, 0))
+      .normalize();
+    const camUp = new THREE.Vector3().crossVectors(camRight, baseDir); // already normalised
+    const muzzlePos = camera.position.clone()
+      .addScaledVector(camRight, store.isScoped ? 0 : 0.30)
+      .addScaledVector(camUp,    store.isScoped ? -0.105 : -0.285)
+      .addScaledVector(baseDir,  0.81);
+
+    const dirV = baseDir.clone();
+    if (cfg.spreadDeg > 0) {
+      // Small random cone offset for hip-fire / sustained-fire bloom
+      const spreadRad = THREE.MathUtils.degToRad(cfg.spreadDeg);
+      const randAngle = Math.random() * Math.PI * 2;
+      const randRadius = Math.sqrt(Math.random()) * spreadRad * (store.isScoped ? 0.25 : 1);
+      const offsetX = Math.cos(randAngle) * randRadius;
+      const offsetY = Math.sin(randAngle) * randRadius;
+
+      const up = Math.abs(dirV.y) < 0.99 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
+      const right = new THREE.Vector3().crossVectors(up, dirV).normalize();
+      const trueUp = new THREE.Vector3().crossVectors(dirV, right).normalize();
+
+      dirV.add(right.multiplyScalar(offsetX)).add(trueUp.multiplyScalar(offsetY)).normalize();
+    }
+
+    const bulletId = Math.random().toString(36).substring(7);
+
+    raycaster.current.camera = camera;
+    raycaster.current.set(pos, dirV);
+    const intersects = raycaster.current.intersectObjects(scene.children, true);
+
+    let localHitPoint: THREE.Vector3 | null = null;
+
+    for (let hit of intersects) {
+      if (hit.object.type === "Sprite") continue;
+      // Ignore our own weapon model
+      if (hit.object.name === "weapon") continue;
+
+      localHitPoint = hit.point.clone();
+
+      let obj: THREE.Object3D | null = hit.object;
+      let opponentHit = null;
+      while (obj) {
+        if (obj.name && obj.name.startsWith("opponent-")) {
+          opponentHit = obj;
+          break;
+        }
+        obj = obj.parent;
+      }
+
+      if (opponentHit) {
+        const hitId = opponentHit.name.substring("opponent-".length);
+        const hitPointYLocal = opponentHit.worldToLocal(hit.point.clone()).y;
+        const isHeadshot = hitPointYLocal > 0.3;
+
+        const dist = pos.distanceTo(hit.point);
+        let dmg = cfg.pelletDamage;
+        if (dist > cfg.falloffStart) {
+          const falloffRange = Math.max(0.01, cfg.maxRange - cfg.falloffStart);
+          const t = THREE.MathUtils.clamp((dist - cfg.falloffStart) / falloffRange, 0, 1);
+          dmg = cfg.pelletDamage * (1 - t);
+        }
+        if (isHeadshot) dmg *= cfg.headshotMultiplier;
+
+        if (dmg > 0.5) {
+          const finalDamage = Math.round(Math.min(100, dmg));
+          playSound(isHeadshot ? 'headshot' : 'hit');
+          store.addHitmarker(isHeadshot);
+          socket.emit("hit", { id: hitId, headshot: isHeadshot, damage: finalDamage });
+        }
+        break;
+      }
+      
+      let isArena = false;
+      let checkArena: THREE.Object3D | null = hit.object;
+      while (checkArena) {
+        if (checkArena.name === "arena") {
+          isArena = true;
+          break;
+        }
+        checkArena = checkArena.parent;
+      }
+      if (isArena) {
+        break; // Stop ray at wall/floor
+      }
+    }
+
+    const endPos: [number, number, number] | null = localHitPoint
+      ? [localHitPoint.x, localHitPoint.y, localHitPoint.z]
+      : null;
+
+    // Network event: position used by other clients' Tracers – use muzzle so
+    // spectators see the shot come from the barrel, not from thin air.
+    socket.emit("shoot", {
+      position:  [muzzlePos.x, muzzlePos.y, muzzlePos.z],
+      direction: [dirV.x, dirV.y, dirV.z],
+      id:        bulletId,
+      hitPoint:  endPos,
+    });
+
+    // Local tracer – immediately visible on your own screen
+    store.addBullet({
+      id:        bulletId,
+      position:  [muzzlePos.x, muzzlePos.y, muzzlePos.z],
+      direction: [dirV.x, dirV.y, dirV.z],
+      hitPoint:  endPos,
+    });
+  };
+
   useEffect(() => {
     const onMouseMove = (e: MouseEvent) => {
       if (document.pointerLockElement === document.body) {
@@ -79,13 +241,16 @@ export const Player = ({ position = DEFAULT_POSITION }: { position?: [number, nu
       if (document.pointerLockElement !== document.body) return;
       const store = useGameStore.getState();
       const key_r = store.settings.keybinds.reload.toLowerCase();
+
       if (e.key.toLowerCase() === key_r) {
-        if (matchState === 'playing' && health > 0 && !store.isReloading && store.ammo < 5) {
+        const cfg = WEAPONS[store.currentWeapon];
+        if (matchState === 'playing' && health > 0 && !store.isReloading && store.ammo < cfg.magSize) {
           playSound('reload');
           store.setLocalState({ isReloading: true, isScoped: false });
           setTimeout(() => {
-            useGameStore.getState().setLocalState({ ammo: 5, isReloading: false });
-          }, RELOAD_MS);
+            const liveStore = useGameStore.getState();
+            useGameStore.getState().setLocalState({ ammo: WEAPONS[liveStore.currentWeapon].magSize, isReloading: false });
+          }, cfg.reloadMs);
         }
       }
     };
@@ -96,107 +261,24 @@ export const Player = ({ position = DEFAULT_POSITION }: { position?: [number, nu
       const store = useGameStore.getState();
 
       if (e.button === 2) {
+        const cfg = WEAPONS[store.currentWeapon];
+        if (!cfg.canScope) return;
         store.setLocalState({ isScoped: true });
         playSound('scope');
         return;
       }
       
       if (e.button === 0) {
-        const now = Date.now();
-        if (store.isReloading || now - lastFireTime.current < FIRE_RATE_MS || store.ammo <= 0) {
-          if (store.ammo <= 0 && !store.isReloading) {
-            playSound('reload');
-            store.setLocalState({ isReloading: true, isScoped: false });
-            setTimeout(() => {
-              useGameStore.getState().setLocalState({ ammo: 5, isReloading: false });
-            }, RELOAD_MS);
-          }
-          return;
-        }
-
-        lastFireTime.current = now;
-        store.setLocalState({ ammo: store.ammo - 1, isScoped: false });
-        playSound('shoot');
-        setFlash(true);
-        setTimeout(() => setFlash(false), 50);
-
-        triggerRecoil(store.isScoped);
-
-        if (store.ammo - 1 <= 0) {
-          setTimeout(() => {
-            if (useGameStore.getState().health > 0) {
-              playSound('reload');
-              useGameStore.getState().setLocalState({ isReloading: true });
-              setTimeout(() => {
-                useGameStore.getState().setLocalState({ ammo: 5, isReloading: false });
-              }, RELOAD_MS);
-            }
-          }, 500);
-        }
-
-        const directionV = new THREE.Vector3();
-        camera.getWorldDirection(directionV);
-        const pos = camera.position.clone();
-        
-        const bulletId = Math.random().toString(36).substring(7);
-        
-        raycaster.current.set(pos, directionV);
-        const intersects = raycaster.current.intersectObjects(scene.children, true);
-        
-        let localHitPoint: THREE.Vector3 | null = null;
-        
-        for (let hit of intersects) {
-          // Ignore our own weapon model
-          if (hit.object.name === "weapon") continue;
-
-          localHitPoint = hit.point.clone();
-
-          let obj: THREE.Object3D | null = hit.object;
-          let opponentHit = null;
-          while (obj) {
-            if (obj.name && obj.name.startsWith("opponent-")) {
-              opponentHit = obj;
-              break;
-            }
-            obj = obj.parent;
-          }
-
-          if (opponentHit) {
-            const hitId = opponentHit.name.substring("opponent-".length);
-            const hitPointYLocal = opponentHit.worldToLocal(hit.point.clone()).y;
-            const isHeadshot = hitPointYLocal > 0.3;
-            
-            playSound(isHeadshot ? 'headshot' : 'hit');
-            store.addHitmarker(isHeadshot);
-
-            socket.emit("hit", { id: hitId, headshot: isHeadshot });
-            break;
-          }
-          if (hit.object.name === "arena") {
-            break; 
-          }
-        }
-        
-        const endPos: [number, number, number] | null = localHitPoint ? [localHitPoint.x, localHitPoint.y, localHitPoint.z] : null;
-
-        socket.emit("shoot", {
-          position: [pos.x, pos.y, pos.z],
-          direction: [directionV.x, directionV.y, directionV.z],
-          id: bulletId,
-          hitPoint: endPos
-        });
-        
-        // Add locally so I can see my own tracer immediately
-        store.addBullet({
-          id: bulletId,
-          position: [pos.x, pos.y, pos.z],
-          direction: [directionV.x, directionV.y, directionV.z],
-          hitPoint: endPos
-        });
+        isFiring.current = true;
+        fireShot();
+        return;
       }
     };
 
     const handleMouseUp = (e: MouseEvent) => {
+      if (e.button === 0) {
+        isFiring.current = false;
+      }
       if (e.button === 2) {
         useGameStore.getState().setLocalState({ isScoped: false });
         playSound('unscope');
@@ -215,6 +297,12 @@ export const Player = ({ position = DEFAULT_POSITION }: { position?: [number, nu
 
   useFrame((state, delta) => {
     if (!bodyRef.current) return;
+
+    // Automatic fire: keep shooting every frame while the mouse button is held.
+    // fireShot() self-gates on the weapon's fire rate, so this is safe to call often.
+    if (isFiring.current && WEAPONS[useGameStore.getState().currentWeapon].automatic) {
+      fireShot();
+    }
 
     if (health <= 0) {
       if (!isDead.current) {
@@ -251,6 +339,10 @@ export const Player = ({ position = DEFAULT_POSITION }: { position?: [number, nu
     const { isScoped, settings, teleportTo } = useGameStore.getState();
     if (teleportTo) {
       bodyRef.current.setTranslation({ x: teleportTo[0], y: teleportTo[1], z: teleportTo[2] }, true);
+      if (teleportTo[3] !== undefined) {
+        euler.y = teleportTo[3];
+        targetEuler.y = teleportTo[3];
+      }
       useGameStore.getState().setLocalState({ teleportTo: null });
       if (weaponContainerRef.current) {
         weaponContainerRef.current.visible = true;
@@ -310,6 +402,11 @@ export const Player = ({ position = DEFAULT_POSITION }: { position?: [number, nu
     
     const currentVel = bodyRef.current.linvel();
     const currentPos = bodyRef.current.translation();
+    
+    if (health > 0 && currentPos.y < -30) {
+      socket.emit("hit", { id: myId, headshot: false, damage: 1000 });
+      return;
+    }
     
     // Raycast down from just below the collider to check if grounded
     const rayOrigin = { x: currentPos.x, y: currentPos.y - 0.86, z: currentPos.z };
@@ -433,7 +530,8 @@ export const Player = ({ position = DEFAULT_POSITION }: { position?: [number, nu
     if (weaponContainerRef.current) {
       weaponContainerRef.current.position.copy(camera.position);
       weaponContainerRef.current.quaternion.copy(camera.quaternion);
-      weaponContainerRef.current.visible = !isScoped;
+      // Weapon stays visible when scoped – the 2D ring in App.tsx is the reticle
+      weaponContainerRef.current.visible = health > 0;
     }
 
     // Fade out mouse delta for weapon sway
@@ -466,12 +564,11 @@ export const Player = ({ position = DEFAULT_POSITION }: { position?: [number, nu
   return (
     <>
       <group ref={weaponContainerRef} name="weapon" visible={health > 0}>
-        <SniperWeapon isMoving={isMoving} mouseDelta={mouseDelta.current} />
-        {flash && <MuzzleFlash visible={true} />}
+        <SniperWeapon isMoving={isMoving} mouseDelta={mouseDelta.current} flash={flash} />
       </group>
       
       <RigidBody ref={bodyRef} position={position} colliders={false} mass={1} type="dynamic" linearDamping={0.8} angularDamping={1} lockRotations name={`player-${myId}`}>
-        <CapsuleCollider args={COLLIDER_ARGS} />
+        <CapsuleCollider args={currentColliderArgs} />
         {/* We don't render our own body locally for true FPS feel */}
       </RigidBody>
     </>

@@ -1,5 +1,6 @@
 import React, { useEffect, useState, Suspense, useRef } from "react";
 import { Canvas } from "@react-three/fiber";
+import { PerspectiveCamera } from "@react-three/drei";
 import { socket } from "./socket";
 import { getRandomSpawn } from "./socket";
 import { useGameStore } from "./store/gameStore";
@@ -7,7 +8,8 @@ import { GameScene } from "./components/GameScene";
 import { MainMenu } from "./components/MainMenu";
 import { UploadedCharacter } from "./components/Opponent";
 import { playSound } from "./utils/audio";
-import { LogOut, Play } from "lucide-react";
+import { WEAPONS } from "./config/weapons";
+import { LogOut, Play, Crown, Settings } from "lucide-react";
 
 function formatTime(secs: number) {
   const m = Math.floor(secs / 60);
@@ -47,7 +49,7 @@ const SettingsMenu = ({ onQuit }: { onQuit: () => void }) => {
   const [activeTab, setActiveTab] = React.useState("AUDIO");
 
   return (
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md">
+    <div className="absolute inset-0 z-[999] flex items-center justify-center bg-black/80 backdrop-blur-md">
       <div className="bg-gray-900 border border-gray-700 p-8 rounded-xl w-[600px] text-white">
         <h2 className="text-3xl font-black mb-6 uppercase tracking-wider text-blue-400">
           Settings
@@ -289,11 +291,12 @@ const FpsCounter = () => {
 };
 
 const PlayerAvatar = ({ outfitColor, eyeColor }: { outfitColor: string, eyeColor: string }) => (
-  <Canvas className="w-full h-full pointer-events-none" camera={{ position: [0, 1.4, 2.5], fov: 30 }}>
+  <Canvas className="w-full h-full pointer-events-none" dpr={[1, 1.5]} gl={{ antialias: false, powerPreference: "high-performance" }}>
+    <PerspectiveCamera makeDefault position={[0, 1.4, 2.5]} fov={30} />
     <Suspense fallback={null}>
       <ambientLight intensity={1.2} />
       <directionalLight position={[2, 2, 2]} intensity={1} />
-      <group position={[0, -0.3, 0]} rotation={[0, Math.PI, 0]}>
+      <group position={[0, 0.4, 0]} rotation={[0, Math.PI, 0]}>
         <UploadedCharacter 
           outfitColor={outfitColor || '#3182ce'}
           eyeColor={eyeColor || '#1a202c'}
@@ -303,6 +306,203 @@ const PlayerAvatar = ({ outfitColor, eyeColor }: { outfitColor: string, eyeColor
     </Suspense>
   </Canvas>
 );
+
+const LobbyUI = ({ roomCode, onLeave }: { roomCode: string, onLeave: () => void }) => {
+  const { players, isHost, myId, mapId, matchDuration, toggleSettings, showSettings } = useGameStore();
+  const [showOptions, setShowOptions] = React.useState(false);
+
+  const handleStartMatch = () => {
+    socket.startMatch();
+  };
+
+  const playersList = Object.entries(players).map(([id, p]) => ({ id, ...p }));
+  const actualMaxPlayers = mapId === '1v1' ? 2 : 8;
+  const slots = Array.from({ length: actualMaxPlayers }).map((_, i) => playersList[i] || null);
+  const hostId = Object.keys(players).sort()[0];
+
+  return (
+    <div className="absolute inset-0 z-[100] bg-[#0f1923] text-white flex flex-col pt-16">
+      {showSettings && <SettingsMenu onQuit={onLeave} />}
+      {/* HEADER */}
+      <div className="absolute top-0 left-0 w-full p-8 flex justify-between items-center bg-gradient-to-b from-black/80 to-transparent">
+        <div className="flex flex-col">
+           <h1 className="text-4xl font-black tracking-widest uppercase text-blue-400 drop-shadow-[0_0_15px_rgba(96,165,250,0.5)]">Lobby</h1>
+           <span className="text-sm font-bold text-gray-400 mt-2 uppercase tracking-widest">Party Code: <span className="text-white select-all">{roomCode}</span></span>
+        </div>
+        <div className="flex gap-4">
+           {isHost ? (
+             <button onClick={handleStartMatch} className="bg-red-500 hover:bg-red-400 text-white font-black px-12 py-4 rounded shadow-[0_0_20px_rgba(239,68,68,0.4)] hover:shadow-[0_0_30px_rgba(239,68,68,0.6)] transition-all uppercase tracking-widest">
+               Start Match
+             </button>
+           ) : (
+             <div className="text-gray-400 font-bold uppercase tracking-widest px-8 py-4 bg-black/50 rounded border border-white/10">Waiting for Host...</div>
+           )}
+           <button onClick={onLeave} className="bg-white/10 hover:bg-white/20 text-white font-bold px-8 py-4 rounded transition-all uppercase tracking-widest flex items-center gap-2">
+             <LogOut className="w-5 h-5" /> Leave
+           </button>
+        </div>
+      </div>
+
+      {/* PLAYER CARDS */}
+      <div className="flex-1 flex justify-center items-center gap-4 px-12 pb-12">
+         {slots.map((p, i) => (
+           <div key={i} className={`relative flex-1 max-w-[260px] min-w-[120px] h-[60vh] min-h-[400px] max-h-[700px] border transition-all duration-500 ${p ? (p.id === myId ? 'border-yellow-400/50 bg-black/40 shadow-[0_0_30px_rgba(250,204,21,0.1)]' : 'border-blue-500/30 bg-black/40 shadow-[0_0_30px_rgba(59,130,246,0.1)]') : 'border-white/5 bg-black/20'} overflow-hidden flex flex-col justify-end group clip-path-slant`}>
+              {/* If player exists, render their 3D model */}
+              {p && (
+                 <div className="absolute inset-0 z-0">
+                    <Canvas className="w-full h-full pointer-events-none" dpr={[1, 1.5]} gl={{ antialias: false, powerPreference: "high-performance" }}>
+                       <PerspectiveCamera makeDefault position={[0, 0.2, actualMaxPlayers === 8 ? 4.5 : 3.5]} fov={actualMaxPlayers === 8 ? 50 : 40} />
+                       <ambientLight intensity={1.5} />
+                       <directionalLight position={[2, 2, 2]} intensity={1.5} />
+                       <group position={[0, 0.4, 0]} rotation={[0, Math.PI, 0]}>
+                         <Suspense fallback={null}>
+                            <UploadedCharacter outfitColor={p.outfitColor || '#3182ce'} eyeColor={p.eyeColor || '#1a202c'} hasWeapon={true} />
+                         </Suspense>
+                       </group>
+                    </Canvas>
+                 </div>
+              )}
+              
+              {/* Decorator top */}
+              {p && <div className={`absolute top-0 left-0 w-full h-1 ${p.id === myId ? 'bg-yellow-400' : 'bg-blue-400'} shadow-[0_0_10px_currentColor]`}></div>}
+              
+              {/* Player Info Box at bottom */}
+              <div className="relative z-10 p-6 bg-gradient-to-t from-[#0f1923] via-black/80 to-transparent border-t border-white/5">
+                 {p ? (() => {
+                   const isPlayerHost = p.id === hostId;
+                   const displayName = p.nickname || 'Player';
+                   const namePrefix = displayName.slice(0, -1);
+                   const lastChar = displayName.slice(-1);
+
+                   return (
+                   <div className="flex flex-col items-center">
+                      <span className="text-green-400 text-xs font-black tracking-widest uppercase mb-1 drop-shadow-[0_0_5px_rgba(74,222,128,0.5)]">Ready</span>
+                      <div className={`text-xl font-bold w-full flex justify-center ${p.id === myId ? 'text-yellow-400' : 'text-white'}`}>
+                        <div className="relative max-w-full inline-flex">
+                        {isPlayerHost ? (
+                          <span>
+                            {namePrefix}
+                            <span className="relative inline-block">
+                              {lastChar}
+                              <Crown className="w-4 h-4 text-yellow-400 absolute -top-4 -right-1 rotate-12 drop-shadow-md" />
+                            </span>
+                          </span>
+                        ) : (
+                          displayName
+                        )}
+                        </div>
+                      </div>
+                   </div>
+                   );
+                 })() : (
+                   <div className="flex flex-col items-center">
+                      <span className="text-gray-600 text-[10px] font-black tracking-[0.3em] uppercase mb-1">Empty Slot</span>
+                      <span className="text-gray-500 text-xs font-bold uppercase tracking-widest opacity-50">Searching...</span>
+                   </div>
+                 )}
+              </div>
+           </div>
+         ))}
+      </div>
+      
+      
+      
+      {/* MATCH SETTINGS (TIME & ARENA) */}
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4 z-[110]">
+        
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => setShowOptions(!showOptions)}
+            className="flex items-center gap-2 px-6 py-2 bg-black/80 hover:bg-white/10 rounded-full border border-white/20 text-white text-xs font-black uppercase tracking-[0.3em] transition-all duration-300"
+          >
+            {showOptions ? 'Hide Options' : 'Options'}
+            <svg className={`w-4 h-4 transition-transform duration-300 ${showOptions ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          
+          <button
+            onClick={() => toggleSettings()}
+            className="p-2 bg-black/80 hover:bg-white/10 rounded-full border border-white/20 text-white transition-all duration-300 group shadow-[0_0_15px_rgba(0,0,0,0.5)]"
+          >
+            <Settings className="w-5 h-5 group-hover:rotate-45 transition-transform duration-300" />
+          </button>
+        </div>
+
+        <div className={`flex flex-col md:flex-row gap-4 p-2 bg-black/60 rounded-3xl border border-white/10 shadow-[0_0_40px_rgba(0,0,0,0.9)] backdrop-blur-xl transition-all duration-500 ${showOptions ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 translate-y-10 pointer-events-none'}`}>
+        
+        {/* TIME SETTINGS */}
+        {(!mapId || mapId === 'default') && (
+          <div className="flex items-center bg-white/5 rounded-2xl p-1.5 border border-white/5">
+            <div className="px-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.25em]">Time</div>
+            {isHost ? (
+              <div className="flex gap-1 relative">
+                {[60, 300, 600].map((t) => (
+                  <div 
+                    key={t}
+                    onClick={() => socket.changeTime(t)}
+                    className={`px-5 py-2.5 rounded-xl font-bold uppercase tracking-widest text-xs cursor-pointer transition-all duration-300 ${matchDuration === t || (!matchDuration && t === 300) ? 'bg-yellow-500 text-black shadow-[0_0_20px_rgba(234,179,8,0.3)]' : 'bg-transparent text-gray-500 hover:text-gray-300 hover:bg-white/5'}`}
+                  >
+                    {t / 60}m
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex gap-1">
+                {[60, 300, 600].map((t) => (
+                  <div 
+                    key={t}
+                    className={`px-5 py-2.5 rounded-xl font-bold uppercase tracking-widest text-xs ${matchDuration === t || (!matchDuration && t === 300) ? 'bg-yellow-500 text-black shadow-[0_0_20px_rgba(234,179,8,0.3)]' : 'bg-transparent text-gray-500 hidden'}`}
+                  >
+                    {t / 60}m
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ARENA SETTINGS */}
+        <div className="flex items-center bg-white/5 rounded-2xl p-1.5 border border-white/5">
+          <div className="px-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.25em]">Arena</div>
+          {isHost ? (
+            <div className="flex gap-1 relative">
+              <div 
+                onClick={() => socket.changeMap('default')}
+                className={`px-5 py-2.5 rounded-xl font-bold uppercase tracking-widest text-xs cursor-pointer transition-all duration-300 ${(!mapId || mapId === 'default') ? 'bg-blue-600 text-white shadow-[0_0_20px_rgba(37,99,235,0.4)]' : 'bg-transparent text-gray-500 hover:text-gray-300 hover:bg-white/5'}`}
+              >
+                Default (8P)
+              </div>
+              <div 
+                onClick={() => socket.changeMap('1v1')}
+                className={`px-5 py-2.5 rounded-xl font-bold uppercase tracking-widest text-xs cursor-pointer transition-all duration-300 ${mapId === '1v1' ? 'bg-red-600 text-white shadow-[0_0_20px_rgba(220,38,38,0.4)]' : 'bg-transparent text-gray-500 hover:text-gray-300 hover:bg-white/5'}`}
+              >
+                1v1 Arena (2P)
+              </div>
+            </div>
+          ) : (
+            <div className="flex gap-1">
+              <div className={`px-5 py-2.5 rounded-xl font-bold uppercase tracking-widest text-xs ${(!mapId || mapId === 'default') ? 'bg-blue-600 text-white shadow-[0_0_20px_rgba(37,99,235,0.4)]' : 'bg-transparent text-gray-500 hidden'}`}>
+                Default (8P)
+              </div>
+              <div className={`px-5 py-2.5 rounded-xl font-bold uppercase tracking-widest text-xs ${mapId === '1v1' ? 'bg-red-600 text-white shadow-[0_0_20px_rgba(220,38,38,0.4)]' : 'bg-transparent text-gray-500 hidden'}`}>
+                1v1 Arena (2P)
+              </div>
+            </div>
+          )}
+        </div>
+        </div>
+      </div>
+
+      {/* Background styling for slant effect */}
+      <style dangerouslySetInnerHTML={{__html: `
+        .clip-path-slant {
+           clip-path: polygon(0 0, 100% 0, 100% calc(100% - 20px), calc(100% - 20px) 100%, 0 100%);
+        }
+      `}} />
+    </div>
+  );
+};
 
 const UIOverlay = ({ onQuit, roomCode, playerName }: { onQuit: () => void, roomCode: string, playerName: string }) => {
   const [hasSkipped, setHasSkipped] = React.useState(false);
@@ -314,6 +514,7 @@ const UIOverlay = ({ onQuit, roomCode, playerName }: { onQuit: () => void, roomC
     myId,
     players,
     ammo,
+    currentWeapon,
     isReloading,
     isScoped,
     health,
@@ -409,7 +610,7 @@ const UIOverlay = ({ onQuit, roomCode, playerName }: { onQuit: () => void, roomC
               SHIFT: Sprint / Hold Breath
             </p>
             <p className="bg-gray-800 px-3 py-1 rounded">C: Crouch</p>
-            <p className="bg-gray-800 px-3 py-1 rounded">LMB: Shoot</p>
+            <p className="bg-gray-800 px-3 py-1 rounded">LMB: Hold to Fire</p>
             <p className="bg-gray-800 px-3 py-1 rounded">RMB: Scope</p>
             <p className="bg-gray-800 px-3 py-1 rounded">ESC: Settings</p>
           </div>
@@ -612,9 +813,12 @@ const UIOverlay = ({ onQuit, roomCode, playerName }: { onQuit: () => void, roomC
                   >
                     {ammo}
                   </span>
-                  <span className="text-2xl text-gray-500 font-black">/ 5</span>
+                  <span className="text-2xl text-gray-500 font-black">/ {WEAPONS[currentWeapon].magSize}</span>
                 </>
               )}
+            </div>
+            <div className="text-[10px] text-gray-500 font-bold tracking-widest mt-2 uppercase">
+              {WEAPONS[currentWeapon].name}
             </div>
           </div>
 
@@ -641,42 +845,13 @@ const UIOverlay = ({ onQuit, roomCode, playerName }: { onQuit: () => void, roomC
         </div>
       </div>
 
-      {/* Scope Overlay */}
+      {/* ── Scope reticle overlay (Vignette only) ── */}
       {isScoped ? (
-        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center select-none animate-in fade-in zoom-in-95 duration-150">
-          <div
-            className="relative w-[110vmin] h-[110vmin] rounded-full overflow-hidden border-[40px] border-black flex items-center justify-center shadow-[inset_0_0_100px_50px_rgba(0,0,0,0.8)]"
-            style={{ background: "transparent" }}
-          >
-            {/* Crosshair lines inside scope */}
-            <div className="absolute h-full w-[2px] bg-black/90 opacity-80" />
-            <div className="absolute w-full h-[2px] bg-black/90 opacity-80" />
-
-            {/* Red dot center */}
-            <div className="absolute h-1.5 w-1.5 bg-red-500 rounded-full shadow-[0_0_10px_red]" />
-
-            {/* Mil-dots */}
-            {[...Array(9)].map(
-              (_, i) =>
-                i !== 4 && (
-                  <div
-                    key={`h${i}`}
-                    className="absolute h-[15px] w-[2px] bg-black/80"
-                    style={{ left: `${10 + i * 10}%` }}
-                  ></div>
-                ),
-            )}
-            {[...Array(9)].map(
-              (_, i) =>
-                i !== 4 && (
-                  <div
-                    key={`v${i}`}
-                    className="absolute w-[15px] h-[2px] bg-black/80"
-                    style={{ top: `${10 + i * 10}%` }}
-                  ></div>
-                ),
-            )}
-          </div>
+        <div className="pointer-events-none absolute inset-0 z-20 select-none">
+          {/* Very subtle edge vignette – doesn't block view */}
+          <div className="absolute inset-0" style={{
+            background: 'radial-gradient(ellipse 60% 58% at center, transparent 0%, rgba(0,0,0,0.18) 100%)'
+          }} />
         </div>
       ) : (
         <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center mix-blend-difference select-none">
@@ -839,9 +1014,12 @@ export default function App() {
   const [showAfkModal, setShowAfkModal] = useState(false);
   const lastInputTime = React.useRef(Date.now());
   const timeRemaining = useGameStore((state) => state.timeRemaining);
+  const matchState = useGameStore((state) => state.matchState);
   const [customPlayOptions, setCustomPlayOptions] = useState<{
     name?: string;
     roomCode?: string;
+    mapId?: string;
+    maxPlayers?: number;
   } | null>(null);
 
   useEffect(() => {
@@ -866,7 +1044,7 @@ export default function App() {
 
   useEffect(() => {
     const afkInterval = setInterval(() => {
-      if (!inMenu && connected) {
+      if (!inMenu && connected && matchState === "playing") {
         if (Date.now() - lastInputTime.current > 90000) {
           handleQuit();
           setShowAfkModal(true);
@@ -874,7 +1052,7 @@ export default function App() {
       }
     }, 1000);
     return () => clearInterval(afkInterval);
-  }, [inMenu, connected]);
+  }, [inMenu, connected, matchState]);
 
   useEffect(() => {
     if (inMenu || !globalName) return;
@@ -887,6 +1065,8 @@ export default function App() {
         room: customPlayOptions.roomCode || "",
         outfitColor: settings.outfitColor,
         eyeColor: settings.eyeColor,
+        mapId: customPlayOptions.mapId || "default",
+        maxPlayers: customPlayOptions.maxPlayers || 8,
       };
     } else {
       socket.io.opts.query = {
@@ -894,6 +1074,8 @@ export default function App() {
         room: "",
         outfitColor: settings.outfitColor,
         eyeColor: settings.eyeColor,
+        mapId: "default",
+        maxPlayers: 8,
       };
     }
 
@@ -918,7 +1100,17 @@ export default function App() {
         .updateGameState({
           matchState: data.matchState,
           timeRemaining: data.timeRemaining,
+          mapId: data.mapId,
+          isHost: data.isHost,
+          matchDuration: data.matchDuration,
         });
+      
+      if (data.spawn) {
+        useGameStore.getState().setLocalState({ 
+          teleportTo: [data.spawn.x, data.spawn.y, data.spawn.z, data.spawn.ry || 0] 
+        });
+      }
+
       Object.entries(data.players).forEach(([id, pInfo]: [string, any]) => {
         useGameStore.getState().updatePlayer(id, pInfo);
         if (id === data.id)
@@ -940,7 +1132,8 @@ export default function App() {
         const playerStart = data.players[myId];
         useGameStore.getState().setLocalState({
           health: 100,
-          ammo: 5,
+          ammo: WEAPONS.sniper.magSize,
+          currentWeapon: 'sniper',
           isReloading: false,
           isScoped: false,
           teleportTo: [playerStart.x, playerStart.y, playerStart.z],
@@ -951,7 +1144,8 @@ export default function App() {
           .getState()
           .setLocalState({
             health: 100,
-            ammo: 5,
+            ammo: WEAPONS.sniper.magSize,
+            currentWeapon: 'sniper',
             isReloading: false,
             isScoped: false,
           });
@@ -1100,9 +1294,10 @@ export default function App() {
     socket.on("playerRespawned", (data: { id: string; player: any }) => {
       useGameStore.getState().updatePlayer(data.id, data.player);
       if (data.id === useGameStore.getState().myId) {
+        const liveWeapon = useGameStore.getState().currentWeapon;
         useGameStore.getState().setLocalState({
           health: 100,
-          ammo: 5,
+          ammo: WEAPONS[liveWeapon].magSize,
           teleportTo: [data.player.x, data.player.y, data.player.z],
         });
       }
@@ -1184,10 +1379,21 @@ export default function App() {
 
   if (gameFull) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-900 text-white font-sans">
+      <div className="flex flex-col h-screen items-center justify-center bg-gray-900 text-white font-sans gap-4">
         <h1 className="text-3xl font-bold text-red-500">
-          Game is already full (Max 2 Players).
+          Game is already full.
         </h1>
+        <button
+          onClick={() => {
+            setGameFull(false);
+            setInMenu(true);
+            setConnected(false);
+            setCustomPlayOptions(null);
+          }}
+          className="bg-white/10 hover:bg-white/20 text-white px-6 py-2 rounded-xl transition-all"
+        >
+          Return to Menu
+        </button>
       </div>
     );
   }
@@ -1204,6 +1410,7 @@ export default function App() {
         <div className="absolute inset-0 z-50">
           <MainMenu
             playerName={globalName}
+            onNameChange={setGlobalName}
             onPlay={(options) => {
               if (options) {
                 setCustomPlayOptions({ ...options, name: options.name || globalName });
@@ -1219,7 +1426,11 @@ export default function App() {
         </div>
       )}
 
-      {!inMenu && connected && <UIOverlay onQuit={handleQuit} roomCode={customPlayOptions?.roomCode || "QUICK"} playerName={globalName!} />}
+      {!inMenu && connected && matchState === "lobby" && (
+        <LobbyUI roomCode={customPlayOptions?.roomCode || "QUICK"} onLeave={handleQuit} />
+      )}
+
+      {!inMenu && connected && matchState !== "lobby" && <UIOverlay onQuit={handleQuit} roomCode={customPlayOptions?.roomCode || "QUICK"} playerName={globalName!} />}
 
       {!inMenu && !connected && (
         <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-gray-950 text-white font-sans overflow-hidden select-none">

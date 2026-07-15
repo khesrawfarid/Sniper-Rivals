@@ -102,22 +102,20 @@ export const UploadedCharacter = ({
     let targetY = 0;
     let targetRotX = 0;
     let targetRotZ = 0;
+
     let targetScaleY = 1;
     let targetScaleXZ = 1;
 
-    if (isCrouching) {
-      targetScaleY = 0.65;
-      targetScaleXZ = 1.15;
-      targetY = -0.3;
-    } else if (isJumping) {
-      targetScaleY = 1.15;
-      targetScaleXZ = 0.9;
-    }
-
-    if (isMoving && !isJumping) {
-      const speedScale = isSprinting ? 20 : 12;
-      const bounceAmp = isSprinting ? 0.1 : 0.05;
-      targetY += Math.abs(Math.sin(t * speedScale)) * bounceAmp;
+    if (isJumping) {
+      targetY = 0.5;
+      targetRotX = 0.2;
+    } else if (isCrouching) {
+      targetScaleY = 0.6;
+      targetScaleXZ = 1.1;
+      targetY = -0.4;
+    } else if (isMoving) {
+      const speedScale = isSprinting ? 15 : 10;
+      targetY = Math.abs(Math.sin(t * speedScale)) * 0.1;
 
       targetRotZ =
         Math.sin(t * (speedScale * 0.5)) * (isSprinting ? 0.15 : 0.08);
@@ -135,16 +133,14 @@ export const UploadedCharacter = ({
     modelRef.current.rotation.x = THREE.MathUtils.lerp(
       modelRef.current.rotation.x,
       targetRotX,
-      15 * delta,
+      10 * delta,
     );
     modelRef.current.rotation.z = THREE.MathUtils.lerp(
       modelRef.current.rotation.z,
       targetRotZ,
-      15 * delta,
+      10 * delta,
     );
 
-    // Scale must be applied carefully considering the original modelScale.
-    // Wait, modelRef is inside scale={scale}, so its native scale is 1.
     modelRef.current.scale.x = THREE.MathUtils.lerp(
       modelRef.current.scale.x,
       targetScaleXZ,
@@ -187,6 +183,7 @@ export const Opponent = ({ id }: { id: string }) => {
   const targetPos = useRef(new THREE.Vector3());
   const movingRef = useRef(false);
   const playerState = useGameStore((state) => state.players[id]);
+  const mapId = useGameStore((state) => state.mapId);
 
   useFrame((state, delta) => {
     if (!meshRef.current || !playerState) return;
@@ -232,8 +229,8 @@ export const Opponent = ({ id }: { id: string }) => {
     <group ref={meshRef} name={`opponent-${id}`}>
       {/* Invisible Hitbox scaled exactly like the new player size (-0.85 to 0.85 local Y height) */}
       <mesh position={[0, 0, 0]}>
-        <boxGeometry args={[0.6, 1.7, 0.6]} />
-        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+        <boxGeometry args={[0.8, 1.8, 0.8]} />
+        <meshBasicMaterial colorWrite={false} depthWrite={false} />
       </mesh>
 
       {isTarget ? (
@@ -295,6 +292,7 @@ export const Opponent = ({ id }: { id: string }) => {
             outfitColor={playerState.outfitColor || "#2b6cb0"}
             eyeColor={playerState.eyeColor || "#1a202c"}
             hasWeapon={true}
+            scale={mapId === '1v1' ? [0.6, 0.6, 0.6] : [0.8, 0.8, 0.8]}
           />
         </>
       )}

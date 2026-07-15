@@ -41,10 +41,10 @@ export function useFPSCamera() {
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
 
-  const triggerRecoil = (isScoped: boolean) => {
-    const recoilStrength = isScoped ? 0.08 : 0.05;
-    targetRecoil.current.pitch += recoilStrength + Math.random() * 0.02;
-    targetRecoil.current.yaw += (Math.random() - 0.5) * 0.04;
+  const triggerRecoil = (isScoped: boolean, strength: number = 1) => {
+    const recoilStrength = (isScoped ? 0.08 : 0.05) * strength;
+    targetRecoil.current.pitch += recoilStrength + Math.random() * 0.02 * strength;
+    targetRecoil.current.yaw += (Math.random() - 0.5) * 0.04 * strength;
   };
 
   const updateCamera = (
@@ -128,7 +128,7 @@ export function useFPSCamera() {
     // 7. Dynamic FOV
     let targetFov = settings.fov;
     if (isScoped) {
-      targetFov = 20;
+      targetFov = 62; // Holo sight – mild zoom, NOT sniper (was 20 = 4× too extreme)
     }
 
     const pccamera = camera as THREE.PerspectiveCamera;
@@ -138,5 +138,5 @@ export function useFPSCamera() {
     }
   };
 
-  return { updateCamera, triggerRecoil, euler: euler.current };
+  return { updateCamera, triggerRecoil, euler: euler.current, targetEuler: targetEuler.current };
 }

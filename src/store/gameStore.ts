@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { WEAPONS, WeaponId } from '../config/weapons';
 
 interface GameSettings {
   outfitColor: string;
@@ -29,21 +30,25 @@ interface GameState {
   players: Record<string, any>;
   bullets: Array<{ id: string; position: [number, number, number]; direction: [number, number, number]; createdAt: number }>;
   myId: string | null;
-  matchState: 'waiting' | 'playing' | 'ended';
+  matchState: 'waiting' | 'lobby' | 'playing' | 'ended';
   timeRemaining?: number;
   intermissionTime?: number;
   winner: string | null;
   afkKicked: boolean;
+  mapId?: 'default' | '1v1';
+  matchDuration?: number;
   
   // Local Player State
   ammo: number;
+  currentWeapon: WeaponId;
   isScoped: boolean;
   isReloading: boolean;
   health: number;
-  teleportTo: [number, number, number] | null;
+  teleportTo: [number, number, number, number?] | null;
   hitmarkers: Array<{ id: string, headshot: boolean, createdAt: number }>;
   killFeed: Array<{ id: string, killer: string, victim: string, headshot: boolean, createdAt: number }>;
   ping: number;
+  isHost: boolean;
 
   // Settings
   settings: GameSettings;
@@ -106,7 +111,8 @@ export const useGameStore = create<GameState>((set) => ({
   winner: null,
   afkKicked: false,
   
-  ammo: 5,
+  ammo: WEAPONS.sniper.magSize,
+  currentWeapon: 'sniper' as WeaponId,
   isScoped: false,
   isReloading: false,
   health: 100,
@@ -114,6 +120,7 @@ export const useGameStore = create<GameState>((set) => ({
   hitmarkers: [],
   killFeed: [],
   ping: 0,
+  isHost: false,
 
   settings: initialSettings,
   showSettings: false,
@@ -175,7 +182,8 @@ export const useGameStore = create<GameState>((set) => ({
     timeRemaining: 110,
     winner: null,
     afkKicked: false,
-    ammo: 5,
+    ammo: WEAPONS.sniper.magSize,
+    currentWeapon: 'sniper' as WeaponId,
     isScoped: false,
     isReloading: false,
     health: 100,
