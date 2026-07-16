@@ -293,6 +293,7 @@ class FakeSocket {
         outfitColor: this.io.opts.query.outfitColor || "#3182ce",
         eyeColor: this.io.opts.query.eyeColor || "#1a202c",
         nickname: this.io.opts.query.name || "Player",
+        joinedAt: Date.now(),
         lastUpdate: Date.now(),
       };
 
@@ -459,12 +460,12 @@ class FakeSocket {
       // Listen to players
       const playersCol = collection(db, "matches", roomId, "players");
       this.unsubPlayers = onSnapshot(playersCol, (snap) => {
-        let playerIds: string[] = [];
+        let activePlayers: { id: string, joinedAt: number }[] = [];
         snap.docs.forEach((doc) => {
-          playerIds.push(doc.id);
+          activePlayers.push({ id: doc.id, joinedAt: doc.data().joinedAt || Date.now() });
         });
-        playerIds.sort();
-        this.isHost = playerIds.length > 0 && playerIds[0] === this.id;
+        activePlayers.sort((a, b) => a.joinedAt - b.joinedAt);
+        this.isHost = activePlayers.length > 0 && activePlayers[0].id === this.id;
         this.trigger("gameState", { isHost: this.isHost });
 
         snap.docChanges().forEach((change) => {

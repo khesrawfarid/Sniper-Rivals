@@ -326,7 +326,7 @@ const LobbyUI = ({ roomCode, onLeave }: { roomCode: string, onLeave: () => void 
   const playersList = Object.entries(players).map(([id, p]) => ({ id, ...p }));
   const actualMaxPlayers = mapId === '1v1' ? 2 : 8;
   const slots = Array.from({ length: actualMaxPlayers }).map((_, i) => playersList[i] || null);
-  const hostId = Object.keys(players).sort()[0];
+  const hostId = playersList.length > 0 ? [...playersList].sort((a, b) => (a.joinedAt || Date.now()) - (b.joinedAt || Date.now()))[0].id : '';
 
   return (
     <div className="absolute inset-0 z-[100] bg-[#0f1923] text-white flex flex-col overflow-hidden">
