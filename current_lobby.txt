@@ -1,0 +1,106 @@
+   305	      </group>
+   306	    </Suspense>
+   307	  </Canvas>
+   308	);
+   309	
+   310	const LobbyUI = ({ roomCode, onLeave }: { roomCode: string, onLeave: () => void }) => {
+   311	  const { players, isHost, myId, mapId, matchDuration, toggleSettings, showSettings } = useGameStore();
+   312	  const [showOptions, setShowOptions] = React.useState(false);
+   313	
+   314	  const handleStartMatch = () => {
+   315	    socket.startMatch();
+   316	  };
+   317	
+   318	  const playersList = Object.entries(players).map(([id, p]) => ({ id, ...p }));
+   319	  const actualMaxPlayers = mapId === '1v1' ? 2 : 8;
+   320	  const slots = Array.from({ length: actualMaxPlayers }).map((_, i) => playersList[i] || null);
+   321	  const hostId = Object.keys(players).sort()[0];
+   322	
+   323	  return (
+   324	    <div className="absolute inset-0 z-[100] bg-[#0f1923] text-white flex flex-col pt-16">
+   325	      {showSettings && <SettingsMenu onQuit={onLeave} />}
+   326	      {/* HEADER */}
+   327	      <div className="absolute top-0 left-0 w-full p-8 flex justify-between items-center bg-gradient-to-b from-black/80 to-transparent">
+   328	        <div className="flex flex-col">
+   329	           <h1 className="text-4xl font-black tracking-widest uppercase text-blue-400 drop-shadow-[0_0_15px_rgba(96,165,250,0.5)]">Lobby</h1>
+   330	           <span className="text-sm font-bold text-gray-400 mt-2 uppercase tracking-widest">Party Code: <span className="text-white select-all">{roomCode}</span></span>
+   331	        </div>
+   332	        <div className="flex gap-4">
+   333	           {isHost ? (
+   334	             <button onClick={handleStartMatch} className="bg-red-500 hover:bg-red-400 text-white font-black px-12 py-4 rounded shadow-[0_0_20px_rgba(239,68,68,0.4)] hover:shadow-[0_0_30px_rgba(239,68,68,0.6)] transition-all uppercase tracking-widest">
+   335	               Start Match
+   336	             </button>
+   337	           ) : (
+   338	             <div className="text-gray-400 font-bold uppercase tracking-widest px-8 py-4 bg-black/50 rounded border border-white/10">Waiting for Host...</div>
+   339	           )}
+   340	           <button onClick={onLeave} className="bg-white/10 hover:bg-white/20 text-white font-bold px-8 py-4 rounded transition-all uppercase tracking-widest flex items-center gap-2">
+   341	             <LogOut className="w-5 h-5" /> Leave
+   342	           </button>
+   343	        </div>
+   344	      </div>
+   345	
+   346	      {/* PLAYER CARDS */}
+   347	      <div className="flex-1 flex justify-center items-center gap-4 px-12 pb-12">
+   348	         {slots.map((p, i) => (
+   349	           <div key={i} className={`relative flex-1 max-w-[260px] min-w-[120px] h-[60vh] min-h-[400px] max-h-[700px] border transition-all duration-500 ${p ? (p.id === myId ? 'border-yellow-400/50 bg-black/40 shadow-[0_0_30px_rgba(250,204,21,0.1)]' : 'border-blue-500/30 bg-black/40 shadow-[0_0_30px_rgba(59,130,246,0.1)]') : 'border-white/5 bg-black/20'} overflow-hidden flex flex-col justify-end group clip-path-slant`}>
+   350	              {/* If player exists, render their 3D model */}
+   351	              {p && (
+   352	                 <div className="absolute inset-0 z-0">
+   353	                    <Canvas className="w-full h-full pointer-events-none" dpr={[1, 1.5]} gl={{ antialias: false, powerPreference: "high-performance" }}>
+   354	                       <PerspectiveCamera makeDefault position={[0, 0.2, actualMaxPlayers === 8 ? 4.5 : 3.5]} fov={actualMaxPlayers === 8 ? 50 : 40} />
+   355	                       <ambientLight intensity={1.5} />
+   356	                       <directionalLight position={[2, 2, 2]} intensity={1.5} />
+   357	                       <group position={[0, 0.4, 0]} rotation={[0, Math.PI, 0]}>
+   358	                         <Suspense fallback={null}>
+   359	                            <UploadedCharacter outfitColor={p.outfitColor || '#3182ce'} eyeColor={p.eyeColor || '#1a202c'} hasWeapon={true} />
+   360	                         </Suspense>
+   361	                       </group>
+   362	                    </Canvas>
+   363	                 </div>
+   364	              )}
+   365	              
+   366	              {/* Decorator top */}
+   367	              {p && <div className={`absolute top-0 left-0 w-full h-1 ${p.id === myId ? 'bg-yellow-400' : 'bg-blue-400'} shadow-[0_0_10px_currentColor]`}></div>}
+   368	              
+   369	              {/* Player Info Box at bottom */}
+   370	              <div className="relative z-10 p-6 bg-gradient-to-t from-[#0f1923] via-black/80 to-transparent border-t border-white/5">
+   371	                 {p ? (() => {
+   372	                   const isPlayerHost = p.id === hostId;
+   373	                   const displayName = p.nickname || 'Player';
+   374	                   const namePrefix = displayName.slice(0, -1);
+   375	                   const lastChar = displayName.slice(-1);
+   376	
+   377	                   return (
+   378	                   <div className="flex flex-col items-center">
+   379	                      <span className="text-green-400 text-xs font-black tracking-widest uppercase mb-1 drop-shadow-[0_0_5px_rgba(74,222,128,0.5)]">Ready</span>
+   380	                      <div className={`text-xl font-bold w-full flex justify-center ${p.id === myId ? 'text-yellow-400' : 'text-white'}`}>
+   381	                        <div className="relative max-w-full inline-flex">
+   382	                        {isPlayerHost ? (
+   383	                          <span>
+   384	                            {namePrefix}
+   385	                            <span className="relative inline-block">
+   386	                              {lastChar}
+   387	                              <Crown className="w-4 h-4 text-yellow-400 absolute -top-2 -right-1 rotate-12 drop-shadow-md" />
+   388	                            </span>
+   389	                          </span>
+   390	                        ) : (
+   391	                          displayName
+   392	                        )}
+   393	                        </div>
+   394	                      </div>
+   395	                   </div>
+   396	                   );
+   397	                 })() : (
+   398	                   <div className="flex flex-col items-center">
+   399	                      <span className="text-gray-600 text-[10px] font-black tracking-[0.3em] uppercase mb-1">Empty Slot</span>
+   400	                      <span className="text-gray-500 text-xs font-bold uppercase tracking-widest opacity-50">Searching...</span>
+   401	                   </div>
+   402	                 )}
+   403	              </div>
+   404	           </div>
+   405	         ))}
+   406	      </div>
+   407	      
+   408	      
+   409	      
+   410	      {/* MATCH SETTINGS (TIME & ARENA) */}

@@ -474,8 +474,11 @@ class FakeSocket {
             if (docId !== this.id)
               this.trigger("playerJoined", { id: docId, player: data });
           } else if (change.type === "modified") {
-            if (docId !== this.id)
+            if (docId === this.id && data.kicked) {
+              this.trigger("kicked");
+            } else if (docId !== this.id) {
               this.trigger("playerMoved", { id: docId, player: data });
+            }
           } else if (change.type === "removed") {
             this.trigger("playerLeft", docId);
           }
@@ -689,6 +692,12 @@ class FakeSocket {
         timeRemaining: this.matchDuration,
         matchEndTime: Date.now() + (this.matchDuration * 1000),
       }).catch(() => {});
+    }
+  }
+
+  kickPlayer(playerId: string) {
+    if (this.currentRoom && this.isHost) {
+      setDoc(doc(db, "matches", this.currentRoom, "players", playerId), { kicked: true }, { merge: true });
     }
   }
 

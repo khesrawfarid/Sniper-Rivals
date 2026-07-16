@@ -310,6 +310,14 @@ const PlayerAvatar = ({ outfitColor, eyeColor }: { outfitColor: string, eyeColor
 const LobbyUI = ({ roomCode, onLeave }: { roomCode: string, onLeave: () => void }) => {
   const { players, isHost, myId, mapId, matchDuration, toggleSettings, showSettings } = useGameStore();
   const [showOptions, setShowOptions] = React.useState(false);
+  const [mapError, setMapError] = React.useState('');
+  const [contextMenu, setContextMenu] = React.useState<{ x: number, y: number, playerId: string } | null>(null);
+
+  React.useEffect(() => {
+    const handleClick = () => setContextMenu(null);
+    window.addEventListener('click', handleClick);
+    return () => window.removeEventListener('click', handleClick);
+  }, []);
 
   const handleStartMatch = () => {
     socket.startMatch();
@@ -321,32 +329,41 @@ const LobbyUI = ({ roomCode, onLeave }: { roomCode: string, onLeave: () => void 
   const hostId = Object.keys(players).sort()[0];
 
   return (
-    <div className="absolute inset-0 z-[100] bg-[#0f1923] text-white flex flex-col pt-16">
+    <div className="absolute inset-0 z-[100] bg-[#0f1923] text-white flex flex-col overflow-hidden">
       {showSettings && <SettingsMenu onQuit={onLeave} />}
       {/* HEADER */}
-      <div className="absolute top-0 left-0 w-full p-8 flex justify-between items-center bg-gradient-to-b from-black/80 to-transparent">
-        <div className="flex flex-col">
-           <h1 className="text-4xl font-black tracking-widest uppercase text-blue-400 drop-shadow-[0_0_15px_rgba(96,165,250,0.5)]">Lobby</h1>
-           <span className="text-sm font-bold text-gray-400 mt-2 uppercase tracking-widest">Party Code: <span className="text-white select-all">{roomCode}</span></span>
+      <div className="w-full p-4 md:p-8 flex flex-col md:flex-row justify-between items-center gap-4 bg-gradient-to-b from-black/80 to-transparent shrink-0 z-20">
+        <div className="flex flex-col items-center md:items-start text-center md:text-left">
+           <h1 className="text-3xl md:text-4xl font-black tracking-widest uppercase text-blue-400 drop-shadow-[0_0_15px_rgba(96,165,250,0.5)]">Lobby</h1>
+           <span className="text-xs md:text-sm font-bold text-gray-400 mt-1 md:mt-2 uppercase tracking-widest">Party Code: <span className="text-white select-all">{roomCode}</span></span>
         </div>
-        <div className="flex gap-4">
+        <div className="flex gap-2 md:gap-4 flex-wrap justify-center">
            {isHost ? (
-             <button onClick={handleStartMatch} className="bg-red-500 hover:bg-red-400 text-white font-black px-12 py-4 rounded shadow-[0_0_20px_rgba(239,68,68,0.4)] hover:shadow-[0_0_30px_rgba(239,68,68,0.6)] transition-all uppercase tracking-widest">
+             <button onClick={handleStartMatch} className="bg-red-500 hover:bg-red-400 text-white font-black px-6 md:px-12 py-3 md:py-4 rounded shadow-[0_0_20px_rgba(239,68,68,0.4)] hover:shadow-[0_0_30px_rgba(239,68,68,0.6)] transition-all uppercase tracking-widest text-sm md:text-base">
                Start Match
              </button>
            ) : (
-             <div className="text-gray-400 font-bold uppercase tracking-widest px-8 py-4 bg-black/50 rounded border border-white/10">Waiting for Host...</div>
+             <div className="text-gray-400 font-bold uppercase tracking-widest px-4 md:px-8 py-3 md:py-4 bg-black/50 rounded border border-white/10 text-xs md:text-base">Waiting for Host...</div>
            )}
-           <button onClick={onLeave} className="bg-white/10 hover:bg-white/20 text-white font-bold px-8 py-4 rounded transition-all uppercase tracking-widest flex items-center gap-2">
+           <button onClick={onLeave} className="bg-white/10 hover:bg-white/20 text-white font-bold px-4 md:px-8 py-3 md:py-4 rounded transition-all uppercase tracking-widest flex items-center gap-2 text-sm md:text-base">
              <LogOut className="w-5 h-5" /> Leave
            </button>
         </div>
       </div>
 
       {/* PLAYER CARDS */}
-      <div className="flex-1 flex justify-center items-center gap-4 px-12 pb-12">
+      <div className="flex-1 flex flex-wrap justify-center items-start md:items-center gap-2 md:gap-4 p-4 md:px-12 pb-32 md:pb-12 overflow-y-auto w-full content-start md:content-center">
          {slots.map((p, i) => (
-           <div key={i} className={`relative flex-1 max-w-[260px] min-w-[120px] h-[60vh] min-h-[400px] max-h-[700px] border transition-all duration-500 ${p ? (p.id === myId ? 'border-yellow-400/50 bg-black/40 shadow-[0_0_30px_rgba(250,204,21,0.1)]' : 'border-blue-500/30 bg-black/40 shadow-[0_0_30px_rgba(59,130,246,0.1)]') : 'border-white/5 bg-black/20'} overflow-hidden flex flex-col justify-end group clip-path-slant`}>
+           <div 
+             key={i} 
+             onContextMenu={(e) => {
+               if (isHost && p && p.id !== myId) {
+                 e.preventDefault();
+                 setContextMenu({ x: e.clientX, y: e.clientY, playerId: p.id });
+               }
+             }}
+             className={`relative flex-[1_1_45%] md:flex-1 max-w-[260px] min-w-[100px] md:min-w-[120px] h-[25vh] md:h-[60vh] min-h-[150px] md:min-h-[400px] max-h-[700px] border transition-all duration-500 ${p ? (p.id === myId ? 'border-yellow-400/50 bg-black/40 shadow-[0_0_30px_rgba(250,204,21,0.1)]' : 'border-blue-500/30 bg-black/40 shadow-[0_0_30px_rgba(59,130,246,0.1)]') : 'border-white/5 bg-black/20'} overflow-hidden flex flex-col justify-end group clip-path-slant`}
+           >
               {/* If player exists, render their 3D model */}
               {p && (
                  <div className="absolute inset-0 z-0">
@@ -367,7 +384,7 @@ const LobbyUI = ({ roomCode, onLeave }: { roomCode: string, onLeave: () => void 
               {p && <div className={`absolute top-0 left-0 w-full h-1 ${p.id === myId ? 'bg-yellow-400' : 'bg-blue-400'} shadow-[0_0_10px_currentColor]`}></div>}
               
               {/* Player Info Box at bottom */}
-              <div className="relative z-10 p-6 bg-gradient-to-t from-[#0f1923] via-black/80 to-transparent border-t border-white/5">
+              <div className="relative z-10 p-2 md:p-6 bg-gradient-to-t from-[#0f1923] via-black/80 to-transparent border-t border-white/5">
                  {p ? (() => {
                    const isPlayerHost = p.id === hostId;
                    const displayName = p.nickname || 'Player';
@@ -376,15 +393,15 @@ const LobbyUI = ({ roomCode, onLeave }: { roomCode: string, onLeave: () => void 
 
                    return (
                    <div className="flex flex-col items-center">
-                      <span className="text-green-400 text-xs font-black tracking-widest uppercase mb-1 drop-shadow-[0_0_5px_rgba(74,222,128,0.5)]">Ready</span>
-                      <div className={`text-xl font-bold w-full flex justify-center ${p.id === myId ? 'text-yellow-400' : 'text-white'}`}>
+                      <span className="text-green-400 text-[10px] md:text-xs font-black tracking-widest uppercase mb-1 drop-shadow-[0_0_5px_rgba(74,222,128,0.5)]">Ready</span>
+                      <div className={`text-sm md:text-xl font-bold w-full flex justify-center ${p.id === myId ? 'text-yellow-400' : 'text-white'}`}>
                         <div className="relative max-w-full inline-flex">
                         {isPlayerHost ? (
                           <span>
                             {namePrefix}
                             <span className="relative inline-block">
                               {lastChar}
-                              <Crown className="w-4 h-4 text-yellow-400 absolute -top-4 -right-1 rotate-12 drop-shadow-md" />
+                              <Crown className="w-4 h-4 text-yellow-400 absolute -top-2 -right-1 rotate-12 drop-shadow-md" />
                             </span>
                           </span>
                         ) : (
@@ -396,8 +413,8 @@ const LobbyUI = ({ roomCode, onLeave }: { roomCode: string, onLeave: () => void 
                    );
                  })() : (
                    <div className="flex flex-col items-center">
-                      <span className="text-gray-600 text-[10px] font-black tracking-[0.3em] uppercase mb-1">Empty Slot</span>
-                      <span className="text-gray-500 text-xs font-bold uppercase tracking-widest opacity-50">Searching...</span>
+                      <span className="text-gray-600 text-[8px] md:text-[10px] font-black tracking-[0.3em] uppercase mb-1">Empty Slot</span>
+                      <span className="text-gray-500 text-[10px] md:text-xs font-bold uppercase tracking-widest opacity-50">Searching...</span>
                    </div>
                  )}
               </div>
@@ -463,10 +480,15 @@ const LobbyUI = ({ roomCode, onLeave }: { roomCode: string, onLeave: () => void 
         )}
 
         {/* ARENA SETTINGS */}
-        <div className="flex items-center bg-white/5 rounded-2xl p-1.5 border border-white/5">
-          <div className="px-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.25em]">Arena</div>
+        <div className="flex items-center bg-white/5 rounded-2xl p-1.5 border border-white/5 relative">
+          <div className="px-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.25em]">Map</div>
           {isHost ? (
             <div className="flex gap-1 relative">
+              {mapError && (
+                <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-red-500 text-white text-xs font-bold px-4 py-2 rounded shadow-lg whitespace-nowrap z-50">
+                  {mapError}
+                </div>
+              )}
               <div 
                 onClick={() => socket.changeMap('default')}
                 className={`px-5 py-2.5 rounded-xl font-bold uppercase tracking-widest text-xs cursor-pointer transition-all duration-300 ${(!mapId || mapId === 'default') ? 'bg-blue-600 text-white shadow-[0_0_20px_rgba(37,99,235,0.4)]' : 'bg-transparent text-gray-500 hover:text-gray-300 hover:bg-white/5'}`}
@@ -474,7 +496,14 @@ const LobbyUI = ({ roomCode, onLeave }: { roomCode: string, onLeave: () => void 
                 Default (8P)
               </div>
               <div 
-                onClick={() => socket.changeMap('1v1')}
+                onClick={() => {
+                  if (Object.keys(players).length > 2) {
+                    setMapError('Can\'t change the map because there are too many players');
+                    setTimeout(() => setMapError(''), 3000);
+                  } else {
+                    socket.changeMap('1v1');
+                  }
+                }}
                 className={`px-5 py-2.5 rounded-xl font-bold uppercase tracking-widest text-xs cursor-pointer transition-all duration-300 ${mapId === '1v1' ? 'bg-red-600 text-white shadow-[0_0_20px_rgba(220,38,38,0.4)]' : 'bg-transparent text-gray-500 hover:text-gray-300 hover:bg-white/5'}`}
               >
                 1v1 Arena (2P)
@@ -500,6 +529,20 @@ const LobbyUI = ({ roomCode, onLeave }: { roomCode: string, onLeave: () => void 
            clip-path: polygon(0 0, 100% 0, 100% calc(100% - 20px), calc(100% - 20px) 100%, 0 100%);
         }
       `}} />
+
+      {contextMenu && (
+        <div 
+          className="absolute z-[200] bg-gray-900 border border-white/20 rounded shadow-xl py-2 px-4 cursor-pointer hover:bg-red-600 text-red-500 hover:text-white font-bold text-sm transition-colors"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+          onClick={(e) => {
+            e.stopPropagation();
+            socket.kickPlayer(contextMenu.playerId);
+            setContextMenu(null);
+          }}
+        >
+          Kick Player
+        </div>
+      )}
     </div>
   );
 };
@@ -721,10 +764,10 @@ const UIOverlay = ({ onQuit, roomCode, playerName }: { onQuit: () => void, roomC
     <>
       {showSettings && <SettingsMenu onQuit={onQuit} />}
 
-      <div className="pointer-events-none absolute inset-0 z-10 flex flex-col justify-between p-6 select-none font-sans">
+      <div className="pointer-events-none absolute inset-0 z-10 flex flex-col justify-between p-2 sm:p-6 select-none font-sans overflow-hidden">
         {/* Top HUD */}
-        <div className="flex w-full justify-between items-start text-white relative">
-          <div className="absolute left-0 top-0 flex flex-col items-start gap-1">
+        <div className="flex w-full justify-between items-start text-white relative gap-2">
+          <div className="flex flex-col items-start gap-1 z-10 shrink-0">
             <div className="bg-black/50 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10 shadow-lg flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse pb-px"></div>
               <span className="text-xs font-mono font-bold text-gray-300">{ping || 0}ms</span>
@@ -733,19 +776,19 @@ const UIOverlay = ({ onQuit, roomCode, playerName }: { onQuit: () => void, roomC
           </div>
           {roomCode !== "TRAINING_GROUND" && (
             <>
-              <div className="flex-1 flex justify-center items-start flex-wrap gap-4 sm:gap-6 px-4">
+              <div className="flex-1 flex justify-center items-start flex-wrap gap-2 sm:gap-6 px-1 sm:px-4 max-h-24 sm:max-h-none overflow-hidden">
                 {Object.entries(players)
                   .map(([id, p]) => ({ id, ...p }))
                   .sort((a, b) => (b.kills || 0) - (a.kills || 0))
                   .map(({ id, nickname, kills, outfitColor, eyeColor }) => (
                     <div key={id} className={`flex flex-col items-center gap-1.5 transition-all ${id === myId ? 'scale-110' : 'opacity-80'}`}>
-                      <span className={`text-[10px] font-black uppercase tracking-widest truncate max-w-[80px] ${id === myId ? 'text-yellow-400 drop-shadow-[0_0_5px_rgba(250,204,21,0.5)]' : 'text-gray-400'}`}>
+                      <span className={`text-[8px] sm:text-[10px] font-black uppercase tracking-widest truncate max-w-[50px] sm:max-w-[80px] ${id === myId ? 'text-yellow-400 drop-shadow-[0_0_5px_rgba(250,204,21,0.5)]' : 'text-gray-400'}`}>
                         {id === myId ? (nickname || playerName) : (nickname || 'Player')}
                       </span>
-                      <div className={`w-12 h-12 sm:w-14 sm:h-14 bg-black/60 backdrop-blur-md rounded-xl border flex items-center justify-center shadow-lg overflow-hidden ${id === myId ? 'border-yellow-400/80 shadow-[0_0_15px_rgba(250,204,21,0.3)]' : 'border-white/10'}`}>
+                      <div className={`w-8 h-8 sm:w-14 sm:h-14 bg-black/60 backdrop-blur-md rounded-xl border flex items-center justify-center shadow-lg overflow-hidden ${id === myId ? 'border-yellow-400/80 shadow-[0_0_15px_rgba(250,204,21,0.3)]' : 'border-white/10'}`}>
                         <PlayerAvatar outfitColor={outfitColor as string} eyeColor={eyeColor as string} />
                       </div>
-                      <span className={`text-sm font-black font-mono text-white bg-black/60 px-3 py-1 rounded-lg border border-white/10 min-w-[40px] text-center shadow-lg ${id === myId ? 'border-yellow-400/50 text-yellow-100' : ''}`}>
+                      <span className={`text-[10px] sm:text-sm font-black font-mono text-white bg-black/60 px-2 py-0.5 sm:px-3 sm:py-1 rounded-lg border border-white/10 min-w-[30px] sm:min-w-[40px] text-center shadow-lg ${id === myId ? 'border-yellow-400/50 text-yellow-100' : ''}`}>
                         {kills || 0}
                       </span>
                     </div>
@@ -753,7 +796,7 @@ const UIOverlay = ({ onQuit, roomCode, playerName }: { onQuit: () => void, roomC
                 }
               </div>
 
-              <div className="absolute right-0 top-0">
+              <div className="z-10 shrink-0">
                 <div className="bg-black/50 backdrop-blur-md px-4 py-2 sm:px-6 sm:py-3 rounded-xl border border-white/10 text-center shadow-lg">
                   <p className="text-xl sm:text-2xl font-mono font-bold tracking-widest">
                     {formatTime(timeRemaining)}
@@ -765,11 +808,11 @@ const UIOverlay = ({ onQuit, roomCode, playerName }: { onQuit: () => void, roomC
         </div>
 
         {/* Kill Feed */}
-        <div className="absolute top-24 right-6 flex flex-col gap-2 items-end">
+        <div className="absolute top-24 right-2 sm:right-6 flex flex-col gap-1 sm:gap-2 items-end z-0">
           {killFeed.map((k) => (
             <div
               key={k.id}
-              className="bg-gradient-to-r from-transparent to-red-600/60 pl-8 pr-4 py-1 flex items-center gap-3 animate-pulse border-r-4 border-red-500 rounded-l-full shadow-lg"
+              className="bg-gradient-to-r from-transparent to-red-600/60 pl-4 sm:pl-8 pr-2 sm:pr-4 py-0.5 sm:py-1 flex items-center gap-1 sm:gap-3 animate-pulse border-r-2 sm:border-r-4 border-red-500 rounded-l-full shadow-lg text-[10px] sm:text-base"
             >
               <span className="font-bold text-white">
                 {players[k.killer]?.nickname ||
@@ -797,23 +840,23 @@ const UIOverlay = ({ onQuit, roomCode, playerName }: { onQuit: () => void, roomC
         {/* Bottom HUD */}
         <div className="flex justify-between items-end">
           {/* Ammo (Left) */}
-          <div className="bg-black/50 backdrop-blur-md p-6 rounded-xl border border-white/10 text-left shadow-[0_0_20px_rgba(0,0,0,0.5)] min-w-[200px]">
+          <div className="bg-black/50 backdrop-blur-md p-3 sm:p-6 rounded-xl border border-white/10 text-left shadow-[0_0_20px_rgba(0,0,0,0.5)] min-w-[120px] sm:min-w-[200px]">
             <div className="text-sm font-bold text-gray-400 tracking-widest mb-2">
               AMMO
             </div>
             <div className="flex items-center gap-2">
               {isReloading ? (
-                <span className="text-2xl font-black text-yellow-500 animate-pulse uppercase tracking-wider">
+                <span className="text-sm sm:text-2xl font-black text-yellow-500 animate-pulse uppercase tracking-wider">
                   RELOADING...
                 </span>
               ) : (
                 <>
                   <span
-                    className={`text-5xl font-black ${ammo === 0 ? "text-red-500" : "text-white"}`}
+                    className={`text-3xl sm:text-5xl font-black ${ammo === 0 ? "text-red-500" : "text-white"}`}
                   >
                     {ammo}
                   </span>
-                  <span className="text-2xl text-gray-500 font-black">/ {WEAPONS[currentWeapon].magSize}</span>
+                  <span className="text-lg sm:text-2xl text-gray-500 font-black">/ {WEAPONS[currentWeapon].magSize}</span>
                 </>
               )}
             </div>
@@ -823,12 +866,12 @@ const UIOverlay = ({ onQuit, roomCode, playerName }: { onQuit: () => void, roomC
           </div>
 
           {/* Health (Right) */}
-          <div className="bg-black/50 backdrop-blur-md p-6 rounded-xl border border-white/10 w-80 shadow-[0_0_20px_rgba(0,0,0,0.5)]">
+          <div className="bg-black/50 backdrop-blur-md p-3 sm:p-6 rounded-xl border border-white/10 w-40 sm:w-80 shadow-[0_0_20px_rgba(0,0,0,0.5)]">
             <div className="flex justify-between items-end mb-2">
-              <span className="text-sm font-bold text-gray-400 tracking-widest">
+              <span className="text-[10px] sm:text-sm font-bold text-gray-400 tracking-widest">
                 HP // {Math.max(0, health)}
               </span>
-              <span className="text-3xl font-black text-white">
+              <span className="text-xl sm:text-3xl font-black text-white">
                 {Math.max(0, health)}
               </span>
             </div>
@@ -970,7 +1013,7 @@ const NameSetup = ({ onComplete }: { onComplete: (name: string) => void }) => {
 
   return (
     <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black">
-      <div className="bg-gray-900 border border-white/10 p-10 rounded-2xl w-full max-w-md shadow-2xl">
+      <div className="bg-gray-900 border border-white/10 p-6 md:p-10 rounded-2xl w-full max-w-md shadow-2xl">
         <h1 className="text-3xl font-black italic tracking-widest text-blue-400 uppercase mb-8 text-center">
           Sniper Rivals
         </h1>
@@ -1187,6 +1230,15 @@ export default function App() {
         .updateGameState({ matchState: "ended", winner: data.winner });
       useGameStore.getState().setLocalState({ isScoped: false });
       document.exitPointerLock();
+    });
+
+    socket.on("kicked", () => {
+      socket.disconnect();
+      useGameStore.getState().resetStore();
+      setInMenu(true);
+      setConnected(false);
+      setCustomPlayOptions(null);
+      alert("You have been kicked from the lobby.");
     });
 
     socket.on("timeUpdate", (time: number) => {
@@ -1440,7 +1492,7 @@ export default function App() {
              <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-indigo-600/30 rounded-full blur-[100px] animate-pulse" style={{ animationDelay: '1s' }}></div>
           </div>
           
-          <h1 className="text-6xl font-black mb-8 tracking-[0.2em] text-transparent bg-clip-text bg-gradient-to-br from-blue-400 to-indigo-600 drop-shadow-sm z-10 transition-all hover:scale-105">
+          <h1 className="text-4xl md:text-6xl text-center font-black mb-8 tracking-[0.2em] text-transparent bg-clip-text bg-gradient-to-br from-blue-400 to-indigo-600 drop-shadow-sm z-10 transition-all hover:scale-105">
             SNIPER RIVALS
           </h1>
           
